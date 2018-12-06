@@ -8,7 +8,8 @@ dev_tgt="data/valid.de-en.en"
 test_src="data/test.de-en.de"
 test_tgt="data/test.de-en.en"
 
-work_dir="work_dir"
+now=`date "+%Y%m%dT%H%M%S"`
+work_dir="work_dir/"${now}
 
 mkdir -p ${work_dir}
 echo save results to ${work_dir}
