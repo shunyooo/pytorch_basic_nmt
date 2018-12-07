@@ -36,6 +36,8 @@ Options:
     --valid-niter=<int>                     perform validation after how many iterations [default: 2000]
     --dropout=<float>                       dropout [default: 0.3]
     --max-decoding-time-step=<int>          maximum number of decoding time steps [default: 70]
+    --dev-decode-limit=<int>                validation dev_data decode limit
+    --valid-metric=<str>                    metric used for validation
 """
 
 import math
@@ -497,6 +499,49 @@ class NMT(nn.Module):
         torch.save(params, path)
 
 
+def evaluate_valid_metric(model, dev_data, dev_ppl, args):
+    """
+    Evaluate vaild_metric on dev sentences
+
+    Args:
+        dev_data: a list of dev sentences
+        dev_ppl: for valid_metric
+
+    Returns:
+        vaild_metric: -ppl or blue or etc
+    """
+    # model.eval() is called in beam_search.
+
+    if args['--valid-metric'] == 'blue':
+        _dev_data = dev_data[:int(args['--dev-decode-limit'])]
+        dev_data_src = [src for src, tgt in _dev_data]
+        print(f'begin decode {len(dev_data_src)} examples for blue', file=sys.stderr)
+        begin_time = time.time()
+        hypotheses = beam_search(model, dev_data_src,
+                                 beam_size=int(args['--beam-size']),
+                                 max_decoding_time_step=int(args['--max-decoding-time-step']))
+        elapsed = time.time() - begin_time
+        print(f'finish decode {len(dev_data_src)} examples, took {elapsed:0f} s', file=sys.stderr)
+        top_hypotheses = [hyps[0] for hyps in hypotheses]
+
+        for src_sent, tgt_sent in _dev_data:
+            report = f"""
+            {'*' * 50}
+            Source: {' '.join(src_sent)}
+            Target: {' '.join(tgt_sent)}
+            Top Hypothesis: {' '.join(hyps[0])}
+            """
+            print(report, file=sys.stderr)
+
+        bleu_score = compute_corpus_level_bleu_score(dev_data_src, top_hypotheses)
+        valid_metric = bleu_score
+
+    else:
+        valid_metric = -dev_ppl
+
+    return valid_metric
+
+
 def evaluate_ppl(model, dev_data, batch_size=32):
     """
     Evaluate perplexity on dev sentences
@@ -662,10 +707,12 @@ def train(args: Dict):
                 print('begin validation ...', file=sys.stderr)
 
                 # compute dev. ppl and bleu
-                dev_ppl = evaluate_ppl(model, dev_data, batch_size=128)   # dev batch size can be a bit larger
-                valid_metric = -dev_ppl
+                dev_ppl = evaluate_ppl(model, dev_data, batch_size=128)  # dev batch size can be a bit larger
+                valid_metric = evaluate_valid_metric(model, dev_data, dev_ppl, args)
 
-                print('validation: iter %d, dev. ppl %f' % (train_iter, dev_ppl), file=sys.stderr)
+                print('validation: iter %d, dev. ppl %f, dev. %s %f' % (
+                    train_iter, dev_ppl, args['--valid-metric'], valid_metric
+                ), file=sys.stderr)
 
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
                 hist_valid_scores.append(valid_metric)
