@@ -36,8 +36,8 @@ Options:
     --valid-niter=<int>                     perform validation after how many iterations [default: 2000]
     --dropout=<float>                       dropout [default: 0.3]
     --max-decoding-time-step=<int>          maximum number of decoding time steps [default: 70]
-    --dev-decode-limit=<int>                validation dev_data decode limit
-    --valid-metric=<str>                    metric used for validation
+    --dev-decode-limit=<int>                validation dev_data decode limit [default: 100]
+    --valid-metric=<str>                    metric used for validation [default: blue]
 """
 
 import math
