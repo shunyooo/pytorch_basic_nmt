@@ -764,7 +764,7 @@ def train(args: Dict):
                 report_loss = report_tgt_words = report_examples = 0.
 
                 if train_iter % notify_slack_every == 0:
-                    _notify_slack_if_need(_report)
+                    _notify_slack_if_need(_report, args)
 
             # perform validation
             if train_iter % valid_niter == 0:
