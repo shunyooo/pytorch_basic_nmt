@@ -628,7 +628,7 @@ def _list_dict_update(data_dict, add_dict, mode, is_save=False):
 
     if 'args' in data_dict:
         if is_save:
-            file_path = data_dict['args']['--log-data-file']
+            file_path = data_dict['args']['--log-data']
             print(f'log_data save to {file_path}')
             with open(file_path, 'wb') as log_out:
                 pickle.dump(data_dict, log_out)
