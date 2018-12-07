@@ -17,7 +17,7 @@ echo save results to ${work_dir}
 echo train
 
 python nmt.py \
-    train \
+    train_mle \
     --cuda \
     --vocab ${vocab} \
     --train-src ${train_src} \
