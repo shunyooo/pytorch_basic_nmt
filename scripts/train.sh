@@ -1,5 +1,8 @@
 #!/bin/sh
 
+train_mode="$1"
+echo train: ${train_mode}
+
 vocab="data/vocab.json"
 train_src="data/train.de-en.de.wmixerprep"
 train_tgt="data/train.de-en.en.wmixerprep"
@@ -9,15 +12,14 @@ test_src="data/test.de-en.de"
 test_tgt="data/test.de-en.en"
 
 now=`date "+%Y%m%dT%H%M%S"`
-work_dir="work_dir/"${now}
+work_dir="work_dir/"${train_mode}"/"${now}
 
 mkdir -p ${work_dir}
 echo save results to ${work_dir}
 
-echo train
-
+train_mode_val="train_"${train_mode}
 python nmt.py \
-    train_mle \
+    ${train_mode_val} \
     --cuda \
     --vocab ${vocab} \
     --train-src ${train_src} \
