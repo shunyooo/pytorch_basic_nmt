@@ -401,7 +401,7 @@ def train_raml(args: Dict):
 
             # NOTE: RAML
             weighted_loss_val = weighted_loss.item()
-            batch_losses_val = unweighted_loss.item()
+            batch_losses_val = unweighted_loss.sum().item()
 
             report_weighted_loss += weighted_loss_val
             cum_weighted_loss += weighted_loss_val
