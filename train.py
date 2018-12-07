@@ -388,7 +388,7 @@ def train_raml(args: Dict):
             batch_size = len(raml_src_sents)
 
             # (batch_size)
-            unweighted_loss = model(raml_src_sents, raml_tgt_sents)
+            unweighted_loss = -model(raml_src_sents, raml_tgt_sents)
             batch_loss = weighted_loss = (unweighted_loss * weights_var).sum()
             loss = batch_loss / batch_size
 
