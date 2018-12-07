@@ -1,4 +1,5 @@
 import math
+import re
 from typing import List
 
 import numpy as np
@@ -28,6 +29,42 @@ def read_corpus(file_path, source):
         data.append(sent)
 
     return data
+
+
+def read_raml_train_data(data_file, temp):
+    train_data = dict()
+    num_pattern = re.compile('^(\d+) samples$')
+    with open(data_file) as f:
+        while True:
+            line = f.readline()
+            if line is None or line == '':
+                break
+
+            assert line.startswith('***')
+
+            src_sent = f.readline()[len('source: '):].strip()
+            tgt_num = int(num_pattern.match(f.readline().strip()).group(1))
+            tgt_samples = []
+            tgt_scores = []
+            for i in range(tgt_num):
+                d = f.readline().strip().split(' ||| ')
+                if len(d) < 2:
+                    continue
+
+                tgt_sent = d[0].strip()
+                bleu_score = float(d[1])
+                tgt_samples.append(tgt_sent)
+                tgt_scores.append(bleu_score / temp)
+
+            tgt_scores = np.exp(tgt_scores)
+            tgt_scores = tgt_scores / np.sum(tgt_scores)
+
+            tgt_entry = list(zip(tgt_samples, tgt_scores))
+            train_data[src_sent] = tgt_entry
+
+            line = f.readline()
+
+    return train_data
 
 
 def batch_iter(data, batch_size, shuffle=False):

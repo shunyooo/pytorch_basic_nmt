@@ -42,10 +42,11 @@ Options:
     --log-data=<file>                       log data file
     --notify-slack                          notify slack
     --notify-slack-every=<int>              notify slack every [default: 1000]
+    --raml-temp=<float>                     emperature in reward distribution [default: 0.85]
+    --raml-sample-mode=<str>                raml_sample_mode [default: pre_sample]
+    --raml-sample-size=<int>                sample size [default: 10]
 """
 
-import math
-import pickle
 import sys
 import time
 from collections import namedtuple
