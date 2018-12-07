@@ -27,7 +27,7 @@ python nmt.py \
     --input-feed \
     --valid-niter 2400 \
     --batch-size 64 \
-    --dev-decode-limit 100 \
+    --dev-decode-limit 2000 \
     --valid-metric 'blue' \
     --hidden-size 256 \
     --embed-size 256 \
