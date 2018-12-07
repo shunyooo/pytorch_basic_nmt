@@ -14,6 +14,8 @@ work_dir="work_dir/"${now}
 mkdir -p ${work_dir}
 echo save results to ${work_dir}
 
+echo train
+
 python nmt.py \
     train \
     --cuda \
@@ -35,6 +37,8 @@ python nmt.py \
     --clip-grad 5.0 \
     --save-to ${work_dir}/model.bin \
     --lr-decay 0.5 2>${work_dir}/err.log
+
+echo decode
 
 python nmt.py \
     decode \

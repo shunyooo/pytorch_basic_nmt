@@ -524,12 +524,12 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
         print(f'finish decode {len(dev_data_src)} examples, took {elapsed:0f} s', file=sys.stderr)
         top_hypotheses = [hyps[0] for hyps in hypotheses]
 
-        for src_sent, tgt_sent in _dev_data:
+        for (src_sent, tgt_sent), top_hyp in zip(_dev_data, top_hypotheses):
             report = f"""
             {'*' * 50}
             Source: {' '.join(src_sent)}
             Target: {' '.join(tgt_sent)}
-            Top Hypothesis: {' '.join(hyps[0])}
+            Top Hypothesis: {' '.join(top_hyp)}
             """
             print(report, file=sys.stderr)
 
