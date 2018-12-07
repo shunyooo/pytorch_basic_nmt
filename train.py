@@ -293,9 +293,9 @@ def train_raml(args: Dict):
     model.train()
 
     # NOTE: RAML
-    tau = args['--raml-temp']
+    tau = float(args['--raml-temp'])
     raml_sample_mode = args['--raml-sample-mode']
-    raml_sample_size = args['--raml-sample-size']
+    raml_sample_size = int(args['--raml-sample-size'])
 
     uniform_init = float(args['--uniform-init'])
     if np.abs(uniform_init) > 0.:
@@ -371,7 +371,7 @@ def train_raml(args: Dict):
                         tgt_samples = tgt_samples_all
                     else:
                         tgt_samples_id = np.random.choice(range(1, len(tgt_samples_all)),
-                                                          size=args.sample_size - 1, replace=False)
+                                                          size=raml_sample_size - 1, replace=False)
                         # [ground truth y*] + samples
                         tgt_samples = [tgt_samples_all[0]] + [tgt_samples_all[i] for i in tgt_samples_id]
 
