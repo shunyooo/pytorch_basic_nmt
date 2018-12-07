@@ -14,6 +14,8 @@ test_tgt="data/test.de-en.en"
 now=`date "+%Y%m%dT%H%M%S"`
 work_dir="work_dir/"${train_mode}"/"${now}
 
+train_sample_tgt="data/samples.txt"
+
 mkdir -p ${work_dir}
 echo save results to ${work_dir}
 
@@ -40,6 +42,7 @@ python nmt.py \
     --save-to ${work_dir}/model.bin \
     --log-data ${work_dir}/log_data.pickle \
     --notify-slack \
+    --raml-sample-file ${train_sample_tgt} \
     --lr-decay 0.5 2>${work_dir}/err.log
 
 echo decode
