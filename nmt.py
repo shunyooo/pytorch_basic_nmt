@@ -62,7 +62,6 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 import slack
-from train import train_mle, train_raml
 from utils import read_corpus, batch_iter, LabelSmoothingLoss
 from vocab import Vocab, VocabEntry
 
@@ -660,6 +659,7 @@ def decode(args: Dict[str, str]):
 
 def main():
     args = docopt(__doc__)
+    from train import train_mle, train_raml
 
     # seed the random number generators
     seed = int(args['--seed'])
