@@ -38,6 +38,9 @@ Options:
     --max-decoding-time-step=<int>          maximum number of decoding time steps [default: 70]
     --dev-decode-limit=<int>                validation dev_data decode limit [default: 100]
     --valid-metric=<str>                    metric used for validation [default: blue]
+    --log-data=<file>                       log data file
+    --notify-slack                          notify slack
+    --notify-slack-every=<int>              notify slack every [default: 1000]
 """
 
 import math
@@ -58,6 +61,7 @@ import torch.nn.utils
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
+import slack
 from utils import read_corpus, batch_iter, LabelSmoothingLoss
 from vocab import Vocab, VocabEntry
 
@@ -578,7 +582,7 @@ def evaluate_ppl(model, dev_data, batch_size=32):
     if was_training:
         model.train()
 
-    return ppl
+    return ppl, cum_loss
 
 
 def compute_corpus_level_bleu_score(references: List[List[str]], hypotheses: List[Hypothesis]) -> float:
@@ -602,6 +606,41 @@ def compute_corpus_level_bleu_score(references: List[List[str]], hypotheses: Lis
     return bleu_score
 
 
+def _list_dict_update(data_dict, add_dict, mode, is_save=False):
+    """
+    data_dictにadd_dictを結合する。
+    data_dictのvalueはlist, add_dictのvalueはスカラ, strの前提
+    mode = train, valid, test
+    """
+
+    _small_data_dict = None
+    if mode in data_dict:
+        _small_data_dict = data_dict[mode]
+    else:
+        data_dict[mode] = {}
+        _small_data_dict = data_dict[mode]
+
+    for k, v in add_dict.items():
+        if k in _small_data_dict:
+            _small_data_dict[k].append(v)
+        else:
+            _small_data_dict[k] = [v]
+
+    if 'args' in data_dict:
+        if is_save:
+            file_path = data_dict['args']['--log-data-file']
+            print(f'log_data save to {file_path}')
+            with open(file_path, 'wb') as log_out:
+                pickle.dump(data_dict, log_out)
+    else:
+        raise Exception('ERROR: argsをlog_dataに入れておいてください')
+
+
+def _notify_slack_if_need(text, args):
+    if args['--notify-slack']:
+        slack.post(text)
+
+
 def train(args: Dict):
     train_data_src = read_corpus(args['--train-src'], source='src')
     train_data_tgt = read_corpus(args['--train-tgt'], source='tgt')
@@ -616,6 +655,7 @@ def train(args: Dict):
     clip_grad = float(args['--clip-grad'])
     valid_niter = int(args['--valid-niter'])
     log_every = int(args['--log-every'])
+    notify_slack_every = int(args['--notify-slack-every'])
     model_save_path = args['--save-to']
 
     vocab = Vocab.load(args['--vocab'])
@@ -649,7 +689,24 @@ def train(args: Dict):
     cum_examples = report_examples = epoch = valid_num = 0
     hist_valid_scores = []
     train_time = begin_time = time.time()
-    print('begin Maximum Likelihood training')
+
+    log_data = {'args': args} # log用, あとで学習の収束とか見るよう
+
+    _info = f"""
+        begin Maximum Likelihood training
+        ・学習：{len(train_data)}ペア
+        ・テスト：{len(dev_data)}ペア, {valid_niter}iter毎
+        ・バッチサイズ：{train_batch_size}
+        ・1epoch = {len(train_data)}ペア = {int(len(train_data)/train_batch_size)}iter
+        ・max epoch：{args['--max-epoch']}
+    """
+    print(_info)
+    print(_info, file=sys.stderr)
+
+    _notify_slack_if_need(f"""
+    {_info}
+    {args}
+    """, args)
 
     while True:
         epoch += 1
@@ -683,17 +740,31 @@ def train(args: Dict):
             report_examples += batch_size
             cum_examples += batch_size
 
-            if train_iter % log_every == 0:
-                print('epoch %d, iter %d, avg. loss %.2f, avg. ppl %.2f ' \
+            if train_iter % log_every == 0 or train_iter % notify_slack_every == 0:
+                _report = 'epoch %d, iter %d, avg. loss %.2f, avg. ppl %.2f ' \
                       'cum. examples %d, speed %.2f words/sec, time elapsed %.2f sec' % (epoch, train_iter,
                                                                                          report_loss / report_examples,
                                                                                          math.exp(report_loss / report_tgt_words),
                                                                                          cum_examples,
                                                                                          report_tgt_words / (time.time() - train_time),
-                                                                                         time.time() - begin_time), file=sys.stderr)
+                                                                                         time.time() - begin_time)
+                print(_report, file=sys.stderr)
+
+                _list_dict_update(log_data, {
+                    'epoch': epoch,
+                    'train_iter': train_iter,
+                    'loss': report_loss / report_examples,
+                    'ppl': math.exp(report_loss / report_tgt_words),
+                    'examples': cum_examples,
+                    'speed': report_tgt_words / (time.time() - train_time),
+                    'elapsed': time.time() - begin_time
+                }, 'train')
 
                 train_time = time.time()
                 report_loss = report_tgt_words = report_examples = 0.
+
+                if train_iter % notify_slack_every == 0:
+                    _notify_slack_if_need(_report)
 
             # perform validation
             if train_iter % valid_niter == 0:
@@ -708,12 +779,25 @@ def train(args: Dict):
                 print('begin validation ...', file=sys.stderr)
 
                 # compute dev. ppl and bleu
-                dev_ppl = evaluate_ppl(model, dev_data, batch_size=128)  # dev batch size can be a bit larger
+                dev_ppl, dev_loss = evaluate_ppl(model, dev_data, batch_size=128)  # dev batch size can be a bit larger
                 valid_metric = evaluate_valid_metric(model, dev_data, dev_ppl, args)
 
-                print('validation: iter %d, dev. ppl %f, dev. %s %f' % (
+                _report = 'validation: iter %d, dev. ppl %f, dev. %s %f' % (
                     train_iter, dev_ppl, args['--valid-metric'], valid_metric
-                ), file=sys.stderr)
+                )
+                print(_report, file=sys.stderr)
+                _notify_slack_if_need(_report, args)
+
+                if 'dev_data' in log_data:
+                    log_data['dev_data'] = dev_data
+
+                _list_dict_update(log_data, {
+                    'epoch': epoch,
+                    'train_iter': train_iter,
+                    'loss': dev_loss,
+                    'ppl': dev_ppl,
+                    args['--valid-metric']: valid_metric,
+                }, 'validation', is_save=True)
 
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
                 hist_valid_scores.append(valid_metric)
@@ -733,7 +817,9 @@ def train(args: Dict):
                         num_trial += 1
                         print('hit #%d trial' % num_trial, file=sys.stderr)
                         if num_trial == int(args['--max-num-trial']):
-                            print('early stop!', file=sys.stderr)
+                            _report = 'early stop!'
+                            _notify_slack_if_need(_report, args)
+                            print(_report, file=sys.stderr)
                             exit(0)
 
                         # decay lr, and restore from previously best checkpoint
@@ -756,7 +842,9 @@ def train(args: Dict):
                         patience = 0
 
                 if epoch == int(args['--max-epoch']):
-                    print('reached maximum number of epochs!', file=sys.stderr)
+                    _report = 'reached maximum number of epochs!'
+                    _notify_slack_if_need(_report, args)
+                    print(_report, file=sys.stderr)
                     exit(0)
 
 

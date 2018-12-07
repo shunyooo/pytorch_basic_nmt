@@ -36,6 +36,8 @@ python nmt.py \
     --dropout 0.2 \
     --clip-grad 5.0 \
     --save-to ${work_dir}/model.bin \
+    --log-data ${work_dir}/log_data.pickle \
+    --notify-slack \
     --lr-decay 0.5 2>${work_dir}/err.log
 
 echo decode
