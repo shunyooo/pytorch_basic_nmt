@@ -4,8 +4,8 @@
 A very basic implementation of neural machine translation
 
 Usage:
-    nmt.py train_mle --train-src=<file> --train-tgt=<file> --dev-src=<file> --dev-tgt=<file> --vocab=<file> --raml-sample-file=<file> [options]
-    nmt.py train_raml --train-src=<file> --train-tgt=<file> --dev-src=<file> --dev-tgt=<file> --vocab=<file> [options]
+    nmt.py train_mle --train-src=<file> --train-tgt=<file> --dev-src=<file> --dev-tgt=<file> --vocab=<file> [options]
+    nmt.py train_raml --train-src=<file> --train-tgt=<file> --dev-src=<file> --dev-tgt=<file> --vocab=<file> --raml-sample-file=<file> [options]
     nmt.py decode [options] MODEL_PATH TEST_SOURCE_FILE OUTPUT_FILE
     nmt.py decode [options] MODEL_PATH TEST_SOURCE_FILE TEST_TARGET_FILE OUTPUT_FILE
 
@@ -17,6 +17,7 @@ Options:
     --dev-src=<file>                        dev source file
     --dev-tgt=<file>                        dev target file
     --vocab=<file>                          vocab file
+    --raml-sample-file=<file>               path to the sampled targets
     --seed=<int>                            seed [default: 0]
     --batch-size=<int>                      batch size [default: 32]
     --embed-size=<int>                      embedding size [default: 256]
@@ -42,7 +43,6 @@ Options:
     --log-data=<file>                       log data file
     --notify-slack                          notify slack
     --notify-slack-every=<int>              notify slack every [default: 1000]
-    --raml-sample-file=<file>               path to the sampled targets
     --raml-temp=<float>                     emperature in reward distribution [default: 0.85]
     --raml-sample-mode=<str>                raml_sample_mode [default: pre_sample]
     --raml-sample-size=<int>                sample size [default: 10]
@@ -663,6 +663,8 @@ def decode(args: Dict[str, str]):
 def main():
     args = docopt(__doc__)
     from train import train_mle, train_raml
+
+    print(args)
 
     # seed the random number generators
     seed = int(args['--seed'])
