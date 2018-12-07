@@ -336,7 +336,7 @@ def train_raml(args: Dict):
     log_data = {'args': args}  # log用, あとで学習の収束とか見るよう
 
     _info = f"""
-        begin Maximum Likelihood training
+        begin RAML training
         ・学習：{len(train_data)}ペア
         ・テスト：{len(dev_data)}ペア, {valid_niter}iter毎
         ・バッチサイズ：{train_batch_size}
