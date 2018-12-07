@@ -529,7 +529,8 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
             {'*' * 50}
             Source: {' '.join(src_sent)}
             Target: {' '.join(tgt_sent)}
-            Top Hypothesis: {' '.join(top_hyp)}
+            Top Hypothesis: {' '.join(top_hyp.value)}
+            Top Hypothesis Score: {top_hyp.score}
             """
             print(report, file=sys.stderr)
 
