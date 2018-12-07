@@ -182,8 +182,7 @@ def train_mle(args: Dict):
                                                                                              cum_loss / cum_examples,
                                                                                              np.exp(
                                                                                                  cum_loss / cum_tgt_words),
-                                                                                             cum_examples),
-                      file=sys.stderr)
+                                                                                             cum_examples), file=sys.stderr)
 
                 cum_loss = cum_examples = cum_tgt_words = 0.
                 valid_num += 1
@@ -192,16 +191,16 @@ def train_mle(args: Dict):
 
                 # compute dev. ppl and bleu
                 dev_ppl, dev_loss = evaluate_ppl(model, dev_data, batch_size=128)  # dev batch size can be a bit larger
-                valid_metric = evaluate_valid_metric(model, dev_data, dev_ppl, args)
+                valid_metric, eval_info = evaluate_valid_metric(model, dev_data, dev_ppl, args)
 
-                _report = 'validation: iter %d, dev. ppl %f, dev. %s %f' % (
-                    train_iter, dev_ppl, args['--valid-metric'], valid_metric
+                _report = 'validation: iter %d, dev. ppl %f, dev. %s %f , time elapsed %.2f sec' % (
+                    train_iter, dev_ppl, args['--valid-metric'], valid_metric, eval_info['elapsed']
                 )
                 print(_report, file=sys.stderr)
                 _notify_slack_if_need(_report, args)
 
                 if 'dev_data' in log_data:
-                    log_data['dev_data'] = dev_data
+                    log_data['dev_data'] = dev_data[:int(args['--dev-decode-limit'])]
 
                 _list_dict_update(log_data, {
                     'epoch': epoch,
@@ -209,6 +208,7 @@ def train_mle(args: Dict):
                     'loss': dev_loss,
                     'ppl': dev_ppl,
                     args['--valid-metric']: valid_metric,
+                    **eval_info,
                 }, 'validation', is_save=True)
 
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
@@ -393,8 +393,7 @@ def train_raml(args: Dict):
                                                                                              cum_loss / cum_examples,
                                                                                              np.exp(
                                                                                                  cum_loss / cum_tgt_words),
-                                                                                             cum_examples),
-                      file=sys.stderr)
+                                                                                             cum_examples), file=sys.stderr)
 
                 cum_loss = cum_examples = cum_tgt_words = 0.
                 valid_num += 1
@@ -403,16 +402,16 @@ def train_raml(args: Dict):
 
                 # compute dev. ppl and bleu
                 dev_ppl, dev_loss = evaluate_ppl(model, dev_data, batch_size=128)  # dev batch size can be a bit larger
-                valid_metric = evaluate_valid_metric(model, dev_data, dev_ppl, args)
+                valid_metric, eval_info = evaluate_valid_metric(model, dev_data, dev_ppl, args)
 
-                _report = 'validation: iter %d, dev. ppl %f, dev. %s %f' % (
-                    train_iter, dev_ppl, args['--valid-metric'], valid_metric
+                _report = 'validation: iter %d, dev. ppl %f, dev. %s %f , time elapsed %.2f sec' % (
+                    train_iter, dev_ppl, args['--valid-metric'], valid_metric, eval_info['elapsed']
                 )
                 print(_report, file=sys.stderr)
                 _notify_slack_if_need(_report, args)
 
                 if 'dev_data' in log_data:
-                    log_data['dev_data'] = dev_data
+                    log_data['dev_data'] = dev_data[:int(args['--dev-decode-limit'])]
 
                 _list_dict_update(log_data, {
                     'epoch': epoch,
@@ -420,6 +419,7 @@ def train_raml(args: Dict):
                     'loss': dev_loss,
                     'ppl': dev_ppl,
                     args['--valid-metric']: valid_metric,
+                    **eval_info,
                 }, 'validation', is_save=True)
 
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
@@ -469,3 +469,4 @@ def train_raml(args: Dict):
                     _notify_slack_if_need(_report, args)
                     print(_report, file=sys.stderr)
                     exit(0)
+

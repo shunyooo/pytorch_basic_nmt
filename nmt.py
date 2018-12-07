@@ -545,7 +545,7 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
     else:
         valid_metric = -dev_ppl
 
-    return valid_metric
+    return valid_metric, {'elapsed': elapsed, 'top_hyps': top_hypotheses}
 
 
 def evaluate_ppl(model, dev_data, batch_size=32):
