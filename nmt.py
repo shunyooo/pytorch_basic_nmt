@@ -4,18 +4,16 @@
 A very basic implementation of neural machine translation
 
 Usage:
-    nmt.py train_mle --train-src=<file> --train-tgt=<file> --dev-src=<file> --dev-tgt=<file> --vocab=<file> [options]
-    nmt.py train_raml --train-src=<file> --train-tgt=<file> --dev-src=<file> --dev-tgt=<file> --vocab=<file> --raml-sample-file=<file> [options]
+    nmt.py train_mle --train=<file> --dev=<file> --vocab=<file> [options]
+    nmt.py train_raml --train=<file> --dev=<file> --vocab=<file> [options]
     nmt.py decode [options] MODEL_PATH TEST_SOURCE_FILE OUTPUT_FILE
     nmt.py decode [options] MODEL_PATH TEST_SOURCE_FILE TEST_TARGET_FILE OUTPUT_FILE
 
 Options:
     -h --help                               show this screen.
     --cuda                                  use GPU
-    --train-src=<file>                      train source file
-    --train-tgt=<file>                      train target file
-    --dev-src=<file>                        dev source file
-    --dev-tgt=<file>                        dev target file
+    --train=<file>                          train source target file
+    --dev=<file>                            dev source target file
     --vocab=<file>                          vocab file
     --raml-sample-file=<file>               path to the sampled targets
     --seed=<int>                            seed [default: 0]
@@ -23,7 +21,7 @@ Options:
     --embed-size=<int>                      embedding size [default: 256]
     --hidden-size=<int>                     hidden size [default: 256]
     --clip-grad=<float>                     gradient clipping [default: 5.0]
-    --label-smoothing=<float>                  use label smoothing [default: 0.0]
+    --label-smoothing=<float>               use label smoothing [default: 0.0]
     --log-every=<int>                       log every [default: 10]
     --max-epoch=<int>                       max epoch [default: 30]
     --input-feed                            use input feeding
@@ -70,6 +68,10 @@ from vocab import Vocab, VocabEntry
 
 
 Hypothesis = namedtuple('Hypothesis', ['value', 'score'])
+
+from sumeval.metrics.rouge import RougeCalculator
+
+rouge = RougeCalculator(stopwords=True, lang="en")
 
 
 class NMT(nn.Module):
@@ -607,6 +609,27 @@ def compute_corpus_level_bleu_score(references: List[List[str]], hypotheses: Lis
                              [hyp.value for hyp in hypotheses])
 
     return bleu_score
+
+
+def compute_corpus_level_rouge_score(references: List[List[str]], hypotheses: List[Hypothesis]) -> float:
+    """
+    Given decoding results and reference sentences, compute corpus-level ROUGE score
+
+
+    Args:
+        references: a list of gold-standard reference target sentences
+        hypotheses: a list of hypotheses, one for each reference
+    Returns:
+        rouge_score: corpus-level ROUGE score（ROUGE-1, ROUGE-2, ROUGE-L）
+    """
+
+    if references[0][0] == '<s>':
+        references = [ref[1:-1] for ref in references]
+
+    rouge_score = sum([rouge.rouge_n(summary=hyp.value, references=ref, ) for hyp, ref in zip(hypotheses, references)])/len(references)
+
+    return rouge_score
+
 
 
 def beam_search(model: NMT, test_data_src: List[List[str]], beam_size: int, max_decoding_time_step: int) -> List[List[Hypothesis]]:

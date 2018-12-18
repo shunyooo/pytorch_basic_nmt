@@ -13,7 +13,7 @@ from torch.autograd import Variable
 import slack
 from nmt import NMT, evaluate_ppl, evaluate_valid_metric
 from utils import read_corpus, batch_iter, read_raml_train_data
-from vocab import Vocab
+from vocab import Vocab, CDVocab
 
 import torch.nn.functional as F
 
@@ -55,11 +55,9 @@ def _notify_slack_if_need(text, args):
 
 
 def train_mle(args: Dict):
-    train_data_src = read_corpus(args['--train-src'], source='src')
-    train_data_tgt = read_corpus(args['--train-tgt'], source='tgt')
 
-    dev_data_src = read_corpus(args['--dev-src'], source='src')
-    dev_data_tgt = read_corpus(args['--dev-tgt'], source='tgt')
+    train_data_src, train_data_tgt = read_corpus(args['--train'])
+    dev_data_src, dev_data_tgt = read_corpus(args['--dev'])
 
     train_data = list(zip(train_data_src, train_data_tgt))
     dev_data = list(zip(dev_data_src, dev_data_tgt))
@@ -71,7 +69,7 @@ def train_mle(args: Dict):
     notify_slack_every = int(args['--notify-slack-every'])
     model_save_path = args['--save-to']
 
-    vocab = Vocab.load(args['--vocab'])
+    vocab = CDVocab.load_as_Vocab(args['--vocab'])
 
     model = NMT(embed_size=int(args['--embed-size']),
                 hidden_size=int(args['--hidden-size']),
@@ -163,6 +161,7 @@ def train_mle(args: Dict):
                                                                                              report_tgt_words / (
                                                                                                      time.time() - train_time),
                                                                                              time.time() - begin_time)
+                print(_report)
                 print(_report, file=sys.stderr)
 
                 _list_dict_update(log_data, {
@@ -192,6 +191,7 @@ def train_mle(args: Dict):
                 cum_loss = cum_examples = cum_tgt_words = 0.
                 valid_num += 1
 
+                print('begin validation ...')
                 print('begin validation ...', file=sys.stderr)
 
                 # compute dev. ppl and bleu
@@ -201,6 +201,7 @@ def train_mle(args: Dict):
                 _report = 'validation: iter %d, dev. ppl %f, dev. %s %f , time elapsed %.2f sec' % (
                     train_iter, dev_ppl, args['--valid-metric'], valid_metric, eval_info['elapsed']
                 )
+                print(_report)
                 print(_report, file=sys.stderr)
                 _notify_slack_if_need(_report, args)
 
