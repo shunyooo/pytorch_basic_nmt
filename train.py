@@ -457,7 +457,7 @@ def train_raml(args: Dict):
                 print('begin validation ...', file=sys.stderr)
 
                 # compute dev. ppl and bleu
-                dev_ppl, dev_loss = evaluate_ppl(model, dev_data, batch_size=32)  # dev batch size can be a bit larger
+                dev_ppl, dev_loss = evaluate_ppl(model, dev_data, batch_size=16)  # dev batch size can be a bit larger
                 valid_metric, eval_info = evaluate_valid_metric(model, dev_data, dev_ppl, args)
 
                 _report = 'validation: iter %d, dev. ppl %f, dev. %s %f , time elapsed %.2f sec' % (
