@@ -4,18 +4,15 @@
 A very basic implementation of neural machine translation
 
 Usage:
-    nmt.py train_mle --train-src=<file> --train-tgt=<file> --dev-src=<file> --dev-tgt=<file> --vocab=<file> [options]
-    nmt.py train_raml --train-src=<file> --train-tgt=<file> --dev-src=<file> --dev-tgt=<file> --vocab=<file> --raml-sample-file=<file> [options]
-    nmt.py decode [options] MODEL_PATH TEST_SOURCE_FILE OUTPUT_FILE
-    nmt.py decode [options] MODEL_PATH TEST_SOURCE_FILE TEST_TARGET_FILE OUTPUT_FILE
-
+    nmt.py train_mle --train=<file> --dev=<file> --vocab=<file> [options]
+    nmt.py train_raml --train=<file> --dev=<file> --vocab=<file> [options]
+    nmt.py decode [options] MODEL_PATH TEST_FILE OUTPUT_FILE
+    
 Options:
     -h --help                               show this screen.
     --cuda                                  use GPU
-    --train-src=<file>                      train source file
-    --train-tgt=<file>                      train target file
-    --dev-src=<file>                        dev source file
-    --dev-tgt=<file>                        dev target file
+    --train=<file>                          train source target file
+    --dev=<file>                            dev source target file
     --vocab=<file>                          vocab file
     --raml-sample-file=<file>               path to the sampled targets
     --seed=<int>                            seed [default: 0]
@@ -23,7 +20,7 @@ Options:
     --embed-size=<int>                      embedding size [default: 256]
     --hidden-size=<int>                     hidden size [default: 256]
     --clip-grad=<float>                     gradient clipping [default: 5.0]
-    --label-smoothing=<float>                  use label smoothing [default: 0.0]
+    --label-smoothing=<float>               use label smoothing [default: 0.0]
     --log-every=<int>                       log every [default: 10]
     --max-epoch=<int>                       max epoch [default: 30]
     --input-feed                            use input feeding
@@ -46,6 +43,7 @@ Options:
     --raml-temp=<float>                     emperature in reward distribution [default: 0.85]
     --raml-sample-mode=<str>                raml_sample_mode [default: pre_sample]
     --raml-sample-size=<int>                sample size [default: 10]
+    --decode-max-sent-num=<int>             decode max size
 """
 
 import sys
@@ -70,6 +68,10 @@ from vocab import Vocab, VocabEntry
 
 
 Hypothesis = namedtuple('Hypothesis', ['value', 'score'])
+
+from sumeval.metrics.rouge import RougeCalculator
+
+rouge = RougeCalculator(stopwords=True, lang="en")
 
 
 class NMT(nn.Module):
@@ -545,6 +547,8 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
         valid_metric = bleu_score
 
     else:
+        elapsed = 0
+        top_hypotheses = []
         valid_metric = -dev_ppl
 
     return valid_metric, {'elapsed': elapsed, 'top_hyps': top_hypotheses}
@@ -609,6 +613,27 @@ def compute_corpus_level_bleu_score(references: List[List[str]], hypotheses: Lis
     return bleu_score
 
 
+def compute_corpus_level_rouge_score(references: List[List[str]], hypotheses: List[Hypothesis]) -> float:
+    """
+    Given decoding results and reference sentences, compute corpus-level ROUGE score
+
+
+    Args:
+        references: a list of gold-standard reference target sentences
+        hypotheses: a list of hypotheses, one for each reference
+    Returns:
+        rouge_score: corpus-level ROUGE score（ROUGE-1, ROUGE-2, ROUGE-L）
+    """
+
+    if references[0][0] == '<s>':
+        references = [ref[1:-1] for ref in references]
+
+    rouge_score = sum([rouge.rouge_n(summary=hyp.value, references=ref, ) for hyp, ref in zip(hypotheses, references)])/len(references)
+
+    return rouge_score
+
+
+
 def beam_search(model: NMT, test_data_src: List[List[str]], beam_size: int, max_decoding_time_step: int) -> List[List[Hypothesis]]:
     was_training = model.training
     model.eval()
@@ -629,14 +654,17 @@ def decode(args: Dict[str, str]):
     """
     performs decoding on a test set, and save the best-scoring decoding results.
     If the target gold-standard sentences are given, the function also computes
-    corpus-level BLEU score.
+    corpus-level ROUGE score.
     """
 
-    print(f"load test source sentences from [{args['TEST_SOURCE_FILE']}]", file=sys.stderr)
-    test_data_src = read_corpus(args['TEST_SOURCE_FILE'], source='src')
-    if args['TEST_TARGET_FILE']:
-        print(f"load test target sentences from [{args['TEST_TARGET_FILE']}]", file=sys.stderr)
-        test_data_tgt = read_corpus(args['TEST_TARGET_FILE'], source='tgt')
+    limit = None
+    if args['--decode-max-sent-num']:
+        limit = int(args['--decode-max-sent-num'])
+
+    print(f"load test source target sentences from [{args['TEST_FILE']}]", file=sys.stderr)
+    test_data_src, test_data_tgt = read_corpus(args['TEST_FILE'])
+    test_data_src = test_data_src[:limit]
+    test_data_tgt = test_data_tgt[:limit]
 
     print(f"load model from {args['MODEL_PATH']}", file=sys.stderr)
     model = NMT.load(args['MODEL_PATH'])
@@ -648,16 +676,40 @@ def decode(args: Dict[str, str]):
                              beam_size=int(args['--beam-size']),
                              max_decoding_time_step=int(args['--max-decoding-time-step']))
 
-    if args['TEST_TARGET_FILE']:
-        top_hypotheses = [hyps[0] for hyps in hypotheses]
-        bleu_score = compute_corpus_level_bleu_score(test_data_tgt, top_hypotheses)
-        print(f'Corpus BLEU: {bleu_score}', file=sys.stderr)
+    # TODO: TEST CODE ROUGE
+    # if args['TEST_TARGET_FILE']:
+    #     top_hypotheses = [hyps[0] for hyps in hypotheses]
+    #     bleu_score = compute_corpus_level_bleu_score(test_data_tgt, top_hypotheses)
+    #     print(f'Corpus BLEU: {bleu_score}', file=sys.stderr)
 
     with open(args['OUTPUT_FILE'], 'w') as f:
-        for src_sent, hyps in zip(test_data_src, hypotheses):
+        for src_sent, tgt_sent, hyps in zip(test_data_src, test_data_tgt, hypotheses):
             top_hyp = hyps[0]
             hyp_sent = ' '.join(top_hyp.value)
-            f.write(hyp_sent + '\n')
+            decode_info = f"""
+            *************************************************************************************
+            
+            ###########
+            # ARTICLE #
+            ###########
+            
+            {' '.join(src_sent)}
+            
+            ################
+            # GOLD SUMMARY #
+            ################
+            
+            {' '.join(tgt_sent)}
+            
+            
+            #################
+            # TOP HYPOTHESE #
+            #################
+            
+            {hyp_sent}
+            
+            """
+            f.write(decode_info)
 
 
 def main():

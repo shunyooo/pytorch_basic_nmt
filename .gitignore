@@ -3,5 +3,6 @@
 logs/*
 decode/*
 models/*
+data/*
 tmp/*
 .ipynb_checkpoints/*

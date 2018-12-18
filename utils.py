@@ -1,12 +1,16 @@
 import math
 import re
+import sys
 from typing import List
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pickle
 
+SENTENCE_START = '<s>'
+SENTENCE_END = '</s>'
 
 def input_transpose(sents, pad_token):
     max_len = max(len(s) for s in sents)
@@ -19,16 +23,49 @@ def input_transpose(sents, pad_token):
     return sents_t
 
 
-def read_corpus(file_path, source):
+def legacy_read_corpus(file_path, source):
     data = []
     for line in open(file_path):
         sent = line.strip().split(' ')
         # only append <s> and </s> to the target sentence
         if source == 'tgt':
-            sent = ['<s>'] + sent + ['</s>']
+            sent = [SENTENCE_START] + sent + [SENTENCE_END]
         data.append(sent)
 
     return data
+
+
+def abstract2sents(abstract):
+    """Splits abstract text from datafile into list of sentences.
+    Args:
+      abstract: string containing <s> and </s> tags for starts and ends of sentences
+    Returns:
+      sents: List of sentence strings (no tags)"""
+    cur = 0
+    sents = []
+    while True:
+        try:
+            start_p = abstract.index(SENTENCE_START, cur)
+            end_p = abstract.index(SENTENCE_END, start_p + 1)
+            cur = end_p + len(SENTENCE_END)
+            sents.append(abstract[start_p + len(SENTENCE_START):end_p])
+        except ValueError as e:  # no more sentences
+            return sents
+
+
+def read_corpus(file_path):
+    """
+    cnndailyコーパスを読み込む。
+    abstractは一文として読み込む。
+    :param file_path:
+    :return: src_data, tgt_data
+    """
+    print(f'read_corpus:{file_path}', file=sys.stderr)
+    with open(file_path, 'rb') as f:
+        data = pickle.load(f)
+    src_data = [s['article'].split(' ') for s in data]
+    tgt_data = [[SENTENCE_START]+''.join(abstract2sents(s['abstract'])).split(' ')+[SENTENCE_END] for s in data]
+    return src_data, tgt_data
 
 
 def read_raml_train_data(data_file, temp):

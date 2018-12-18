@@ -14,3 +14,5 @@ dependencies:
     - tqdm
     - slacker
     - ipdb
+    - msgpack
+    - sumeval

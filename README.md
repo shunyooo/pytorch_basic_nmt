@@ -30,6 +30,18 @@ The code is written in Python 3.6 using some supporting third-party libraries. W
 conda env create -f environment.yml
 ```
 
+```shell
+conda env update -f=environment.yml
+```
+
+```shell
+conda activate pytorch0.4
+```
+
+
+
+
+
 ### Usage
 
 Each runnable script (`nmt.py`, `vocab.py`) is annotated using `dotopt`.
@@ -49,3 +61,47 @@ The script also has options to control the cutoff frequency and the size of gene
 
 To start training and evaluation, simply run `data/train.sh`. 
 After training and decoding, we call the official evaluation script `multi-bleu.perl` to compute the corpus-level BLEU score of the decoding results against the gold-standard.
+
+
+
+# CNNDAILY
+
+```bash
+python3 vocab.py --train=data/cnn-daily/train_story_list.pickle data/cnn-daily/vocab.json
+```
+
+
+
+# DATA
+
+> https://github.com/becxer/cnn-dailymail
+
+| data  | volume(pair) |
+| ----- | ------------ |
+| train | 287227       |
+| dev   | 13368        |
+| test  | 11490        |
+
+## NOTE
+
+現状、GPU v100で、
+
+学習：1epoch = 10000(set) = 8(batch_size) * 1250(iter) = 275(sec) = 約5分
+なので、全データでは1epoch = 287227(set) = 約2時間 かかる
+
+devでの評価は 1000(set) = 11(sec)
+なので、全データでは1回の評価で13368(set) = 2.4分
+
+decode 11490(set) = 41(min)
+
+
+
+## TODO
+
+- [ ] 必須
+  - [ ] decodeをわかりやすいように
+  - [ ] rougeでの評価
+- [ ] やる
+  - [ ] git ammend リファクタ。特にtrain部分でのmleとramlの共通コードをまとめる
+  - [ ] tensorboard的な学習の可視化
+  - [ ] モデル保存の工夫（epoch毎にとかにして、あとでdecodeを確認できるように）
