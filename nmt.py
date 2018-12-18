@@ -6,9 +6,8 @@ A very basic implementation of neural machine translation
 Usage:
     nmt.py train_mle --train=<file> --dev=<file> --vocab=<file> [options]
     nmt.py train_raml --train=<file> --dev=<file> --vocab=<file> [options]
-    nmt.py decode [options] MODEL_PATH TEST_SOURCE_FILE OUTPUT_FILE
-    nmt.py decode [options] MODEL_PATH TEST_SOURCE_FILE TEST_TARGET_FILE OUTPUT_FILE
-
+    nmt.py decode [options] MODEL_PATH TEST_FILE OUTPUT_FILE
+    
 Options:
     -h --help                               show this screen.
     --cuda                                  use GPU
@@ -654,14 +653,11 @@ def decode(args: Dict[str, str]):
     """
     performs decoding on a test set, and save the best-scoring decoding results.
     If the target gold-standard sentences are given, the function also computes
-    corpus-level BLEU score.
+    corpus-level ROUGE score.
     """
 
-    print(f"load test source sentences from [{args['TEST_SOURCE_FILE']}]", file=sys.stderr)
-    test_data_src = read_corpus(args['TEST_SOURCE_FILE'], source='src')
-    if args['TEST_TARGET_FILE']:
-        print(f"load test target sentences from [{args['TEST_TARGET_FILE']}]", file=sys.stderr)
-        test_data_tgt = read_corpus(args['TEST_TARGET_FILE'], source='tgt')
+    print(f"load test source target sentences from [{args['TEST_FILE']}]", file=sys.stderr)
+    test_data_src, test_data_tgt = read_corpus(args['TEST_FILE'])
 
     print(f"load model from {args['MODEL_PATH']}", file=sys.stderr)
     model = NMT.load(args['MODEL_PATH'])
@@ -673,10 +669,11 @@ def decode(args: Dict[str, str]):
                              beam_size=int(args['--beam-size']),
                              max_decoding_time_step=int(args['--max-decoding-time-step']))
 
-    if args['TEST_TARGET_FILE']:
-        top_hypotheses = [hyps[0] for hyps in hypotheses]
-        bleu_score = compute_corpus_level_bleu_score(test_data_tgt, top_hypotheses)
-        print(f'Corpus BLEU: {bleu_score}', file=sys.stderr)
+    # TODO: TEST CODE ROUGE
+    # if args['TEST_TARGET_FILE']:
+    #     top_hypotheses = [hyps[0] for hyps in hypotheses]
+    #     bleu_score = compute_corpus_level_bleu_score(test_data_tgt, top_hypotheses)
+    #     print(f'Corpus BLEU: {bleu_score}', file=sys.stderr)
 
     with open(args['OUTPUT_FILE'], 'w') as f:
         for src_sent, hyps in zip(test_data_src, hypotheses):
