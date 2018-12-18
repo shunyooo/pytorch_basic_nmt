@@ -32,7 +32,7 @@ python nmt.py \
     --valid-niter 20 \
     --log-every 1 \
     --batch-size 1 \
-    --dev-decode-limit 2000 \
+    --dev-decode-limit 20 \
     --valid-metric 'ppl' \
     --hidden-size 256 \
     --embed-size 256 \

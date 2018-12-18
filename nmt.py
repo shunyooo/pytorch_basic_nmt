@@ -547,6 +547,8 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
         valid_metric = bleu_score
 
     else:
+        elapsed = 0
+        top_hypotheses = []
         valid_metric = -dev_ppl
 
     return valid_metric, {'elapsed': elapsed, 'top_hyps': top_hypotheses}

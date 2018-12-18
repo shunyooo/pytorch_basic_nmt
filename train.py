@@ -195,11 +195,13 @@ def train_mle(args: Dict):
                 print('begin validation ...', file=sys.stderr)
 
                 # compute dev. ppl and bleu
-                dev_ppl, dev_loss = evaluate_ppl(model, dev_data, batch_size=128)  # dev batch size can be a bit larger
+                _begin_time = time.time()
+                dev_ppl, dev_loss = evaluate_ppl(model, dev_data, batch_size=8)  # dev batch size can be a bit larger
                 valid_metric, eval_info = evaluate_valid_metric(model, dev_data, dev_ppl, args)
+                _elapsed = time.time() - _begin_time
 
                 _report = 'validation: iter %d, dev. ppl %f, dev. %s %f , time elapsed %.2f sec' % (
-                    train_iter, dev_ppl, args['--valid-metric'], valid_metric, eval_info['elapsed']
+                    train_iter, dev_ppl, args['--valid-metric'], valid_metric, _elapsed
                 )
                 print(_report)
                 print(_report, file=sys.stderr)
