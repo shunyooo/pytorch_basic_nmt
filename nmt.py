@@ -693,13 +693,13 @@ def decode(args: Dict[str, str]):
             # ARTICLE #
             ###########
             
-            {src_sent}
+            {' '.join(src_sent)}
             
             ################
             # GOLD SUMMARY #
             ################
             
-            {tgt_sent}
+            {' '.join(tgt_sent)}
             
             
             #################
