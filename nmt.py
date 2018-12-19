@@ -657,18 +657,20 @@ def decode(args: Dict[str, str]):
     corpus-level ROUGE score.
     """
 
+    limit = None
+    if args['--decode-max-sent-num']:
+        limit = int(args['--decode-max-sent-num'])
+
     print(f"load test source target sentences from [{args['TEST_FILE']}]", file=sys.stderr)
     test_data_src, test_data_tgt = read_corpus(args['TEST_FILE'])
+    test_data_src = test_data_src[:limit]
+    test_data_tgt = test_data_tgt[:limit]
 
     print(f"load model from {args['MODEL_PATH']}", file=sys.stderr)
     model = NMT.load(args['MODEL_PATH'])
 
     if args['--cuda']:
         model = model.to(torch.device("cuda:0"))
-
-    limit = None
-    if args['--decode-max-sent-num']:
-        limit = int(args['--decode-max-sent-num'])
 
     hypotheses = beam_search(model, test_data_src,
                              beam_size=int(args['--beam-size']),
@@ -681,7 +683,7 @@ def decode(args: Dict[str, str]):
     #     print(f'Corpus BLEU: {bleu_score}', file=sys.stderr)
 
     with open(args['OUTPUT_FILE'], 'w') as f:
-        for src_sent, tgt_sent, hyps in zip(test_data_src[:limit], test_data_tgt, hypotheses):
+        for src_sent, tgt_sent, hyps in zip(test_data_src, test_data_tgt, hypotheses):
             top_hyp = hyps[0]
             hyp_sent = ' '.join(top_hyp.value)
             decode_info = f"""
