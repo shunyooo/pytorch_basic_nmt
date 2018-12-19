@@ -676,10 +676,33 @@ def decode(args: Dict[str, str]):
     #     print(f'Corpus BLEU: {bleu_score}', file=sys.stderr)
 
     with open(args['OUTPUT_FILE'], 'w') as f:
-        for src_sent, hyps in zip(test_data_src, hypotheses):
+        for src_sent, tgt_sent, hyps in zip(test_data_src, test_data_tgt, hypotheses):
             top_hyp = hyps[0]
             hyp_sent = ' '.join(top_hyp.value)
-            f.write(hyp_sent + '\n')
+            decode_info = f"""
+            *************************************************************************************
+            
+            ###########
+            # ARTICLE #
+            ###########
+            
+            {src_sent}
+            
+            ################
+            # GOLD SUMMARY #
+            ################
+            
+            {tgt_sent}
+            
+            
+            #################
+            # TOP HYPOTHESE #
+            #################
+            
+            {top_hyp}
+            
+            """
+            f.write(decode_info)
 
 
 def main():
