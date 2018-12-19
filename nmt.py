@@ -43,6 +43,7 @@ Options:
     --raml-temp=<float>                     emperature in reward distribution [default: 0.85]
     --raml-sample-mode=<str>                raml_sample_mode [default: pre_sample]
     --raml-sample-size=<int>                sample size [default: 10]
+    --decode-max-sent-num=<int>             decode max size
 """
 
 import sys
@@ -665,6 +666,10 @@ def decode(args: Dict[str, str]):
     if args['--cuda']:
         model = model.to(torch.device("cuda:0"))
 
+    limit = None
+    if args['--decode-max-sent-num']:
+        limit = int(args['--decode-max-sent-num'])
+
     hypotheses = beam_search(model, test_data_src,
                              beam_size=int(args['--beam-size']),
                              max_decoding_time_step=int(args['--max-decoding-time-step']))
@@ -676,7 +681,7 @@ def decode(args: Dict[str, str]):
     #     print(f'Corpus BLEU: {bleu_score}', file=sys.stderr)
 
     with open(args['OUTPUT_FILE'], 'w') as f:
-        for src_sent, tgt_sent, hyps in zip(test_data_src, test_data_tgt, hypotheses):
+        for src_sent, tgt_sent, hyps in zip(test_data_src[:limit], test_data_tgt, hypotheses):
             top_hyp = hyps[0]
             hyp_sent = ' '.join(top_hyp.value)
             decode_info = f"""
@@ -699,7 +704,7 @@ def decode(args: Dict[str, str]):
             # TOP HYPOTHESE #
             #################
             
-            {top_hyp}
+            {hyp_sent}
             
             """
             f.write(decode_info)
