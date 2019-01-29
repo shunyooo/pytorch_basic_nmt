@@ -44,7 +44,7 @@ Options:
     --raml-sample-mode=<str>                raml_sample_mode [default: pre_sample]
     --raml-sample-size=<int>                sample size [default: 10]
     --decode-max-sent-num=<int>             decode max size
-    --ppl-batch-size                        batch size for calculate ppl in dev
+    --ppl-batch-size=<int>                  batch size for calculate ppl in dev [default: 64]
     --debug                                 debug mode
 """
 

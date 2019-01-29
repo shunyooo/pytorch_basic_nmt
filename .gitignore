@@ -5,4 +5,5 @@ decode/*
 models/*
 data/*
 tmp/*
+work_dir/*
 .ipynb_checkpoints/*
