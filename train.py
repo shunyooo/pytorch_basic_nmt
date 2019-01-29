@@ -12,7 +12,7 @@ from torch.autograd import Variable
 
 import slack
 from nmt import NMT, evaluate_ppl, evaluate_valid_metric
-from utils import read_corpus, batch_iter, read_raml_train_data
+from utils import batch_iter, read_raml_train_data, read_corpus_de_en
 from vocab import Vocab, CDVocab
 
 import torch.nn.functional as F
@@ -56,18 +56,23 @@ def _notify_slack_if_need(text, args):
 
 def train_mle(args: Dict):
 
-    train_data_src, train_data_tgt = read_corpus(args['--train'])
-    dev_data_src, dev_data_tgt = read_corpus(args['--dev'])
+    train_data_src = read_corpus_de_en(args['--train'], source='src')
+    train_data_tgt = read_corpus_de_en(args['--train'], source='tgt')
+
+    dev_data_src = read_corpus_de_en(args['--dev'], source='src')
+    dev_data_tgt = read_corpus_de_en(args['--dev'], source='tgt')
 
     train_data = list(zip(train_data_src, train_data_tgt))
     dev_data = list(zip(dev_data_src, dev_data_tgt))
 
     train_batch_size = int(args['--batch-size'])
+    ppl_batch_size = int(args['--ppl-batch-size'])
     clip_grad = float(args['--clip-grad'])
     valid_niter = int(args['--valid-niter'])
     log_every = int(args['--log-every'])
     notify_slack_every = int(args['--notify-slack-every'])
     model_save_path = args['--save-to']
+    is_debug = bool(args['--debug'])
 
     vocab = CDVocab.load_as_Vocab(args['--vocab'])
 
@@ -124,6 +129,11 @@ def train_mle(args: Dict):
 
         for src_sents, tgt_sents in batch_iter(train_data, batch_size=train_batch_size, shuffle=True):
             train_iter += 1
+
+            if is_debug and train_iter == 1:
+                _info = f'原文例：{src_sents[0]}\n参照例：{tgt_sents[0]}'
+                print(_info)
+                print(_info, file=sys.stderr)
 
             optimizer.zero_grad()
 
@@ -196,7 +206,7 @@ def train_mle(args: Dict):
 
                 # compute dev. ppl and bleu
                 _begin_time = time.time()
-                dev_ppl, dev_loss = evaluate_ppl(model, dev_data, batch_size=8)  # dev batch size can be a bit larger
+                dev_ppl, dev_loss = evaluate_ppl(model, dev_data, batch_size=ppl_batch_size)  # dev batch size can be a bit larger
                 valid_metric, eval_info = evaluate_valid_metric(model, dev_data, dev_ppl, args)
                 _elapsed = time.time() - _begin_time
 

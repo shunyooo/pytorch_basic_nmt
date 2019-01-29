@@ -23,7 +23,13 @@ def input_transpose(sents, pad_token):
     return sents_t
 
 
-def legacy_read_corpus(file_path, source):
+def read_corpus_de_en(file_path, source):
+    """
+    de-en用のもの
+    :param file_path:
+    :param source:
+    :return:
+    """
     data = []
     for line in open(file_path):
         sent = line.strip().split(' ')
@@ -33,7 +39,6 @@ def legacy_read_corpus(file_path, source):
         data.append(sent)
 
     return data
-
 
 def abstract2sents(abstract):
     """Splits abstract text from datafile into list of sentences.
@@ -53,7 +58,7 @@ def abstract2sents(abstract):
             return sents
 
 
-def read_corpus(file_path):
+def read_corpus_cnndaily(file_path):
     """
     cnndailyコーパスを読み込む。
     abstractは一文として読み込む。

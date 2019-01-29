@@ -36,7 +36,7 @@ Options:
     --dropout=<float>                       dropout [default: 0.3]
     --max-decoding-time-step=<int>          maximum number of decoding time steps [default: 70]
     --dev-decode-limit=<int>                validation dev_data decode limit [default: 100]
-    --valid-metric=<str>                    metric used for validation [default: blue]
+    --valid-metric=<str>                    metric used for validation [default: bleu]
     --log-data=<file>                       log data file
     --notify-slack                          notify slack
     --notify-slack-every=<int>              notify slack every [default: 1000]
@@ -44,6 +44,8 @@ Options:
     --raml-sample-mode=<str>                raml_sample_mode [default: pre_sample]
     --raml-sample-size=<int>                sample size [default: 10]
     --decode-max-sent-num=<int>             decode max size
+    --ppl-batch-size                        batch size for calculate ppl in dev
+    --debug                                 debug mode
 """
 
 import sys
@@ -63,7 +65,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 import slack
-from utils import read_corpus, batch_iter, LabelSmoothingLoss
+from utils import batch_iter, LabelSmoothingLoss, read_corpus_de_en
 from vocab import Vocab, VocabEntry
 
 
@@ -517,14 +519,14 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
         dev_ppl: for valid_metric
 
     Returns:
-        vaild_metric: -ppl or blue or etc
+        vaild_metric: -ppl or bleu or etc
     """
     # model.eval() is called in beam_search.
 
-    if args['--valid-metric'] == 'blue':
+    if args['--valid-metric'] == 'bleu':
         _dev_data = dev_data[:int(args['--dev-decode-limit'])]
         dev_data_src = [src for src, tgt in _dev_data]
-        print(f'begin decode {len(dev_data_src)} examples for blue', file=sys.stderr)
+        print(f'begin decode {len(dev_data_src)} examples for bleu', file=sys.stderr)
         begin_time = time.time()
         hypotheses = beam_search(model, dev_data_src,
                                  beam_size=int(args['--beam-size']),
@@ -662,7 +664,9 @@ def decode(args: Dict[str, str]):
         limit = int(args['--decode-max-sent-num'])
 
     print(f"load test source target sentences from [{args['TEST_FILE']}]", file=sys.stderr)
-    test_data_src, test_data_tgt = read_corpus(args['TEST_FILE'])
+    test_data_src = read_corpus_de_en(args['--train'], source='src')
+    test_data_tgt = read_corpus_de_en(args['--train'], source='tgt')
+
     test_data_src = test_data_src[:limit]
     test_data_tgt = test_data_tgt[:limit]
 
@@ -689,9 +693,9 @@ def decode(args: Dict[str, str]):
             decode_info = f"""
             *************************************************************************************
             
-            ###########
-            # ARTICLE #
-            ###########
+            ############
+            #  SOURCE  #
+            ############
             
             {' '.join(src_sent)}
             

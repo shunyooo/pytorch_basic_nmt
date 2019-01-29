@@ -3,28 +3,27 @@
 train_mode="mle"
 echo train: ${train_mode}
 
-rm -r work_dir
-
-task_name="cnn-daily"
+task_name="de-en"
 
 data_dir="data/"${task_name}
-vocab=${data_dir}"/vocab.json"
-train_file=${data_dir}"/train_story_list_10k.pickle"
-dev_file=${data_dir}"/val_story_list.pickle"
-test_file=${data_dir}"/test_story_list.pickle"
+vocab=${data_dir}"/vocab_en.json"
+train_file=${data_dir}"/train.de-en.en.wmixerprep"
+dev_file=${data_dir}"/valid.de-en.en"
+test_file=${data_dir}"/test.de-en.en"
 
 now=`date "+%Y%m%dT%H%M%S"`
 work_dir="work_dir/"${task_name}"/"${train_mode}"-debug/"${now}
+
 
 train_sample_tgt=${data_dir}"/samples.txt"
 
 mkdir -p ${work_dir}
 echo save results to ${work_dir}
+# echo less ${work_dir}/err.log | pbcopy # only Mac
 
 train_mode_val="train_"${train_mode}
 python nmt.py \
     ${train_mode_val} \
-    --cuda \
     --vocab ${vocab} \
     --train ${train_file} \
     --dev ${dev_file} \
@@ -33,7 +32,7 @@ python nmt.py \
     --log-every 1 \
     --batch-size 1 \
     --dev-decode-limit 20 \
-    --valid-metric 'ppl' \
+    --valid-metric 'bleu' \
     --hidden-size 256 \
     --embed-size 256 \
     --uniform-init 0.1 \
@@ -44,6 +43,8 @@ python nmt.py \
     --log-data ${work_dir}/log_data.pickle \
     --notify-slack \
     --lr-decay 0.5 \
+    --ppl-batch-size 32 \
+    --debug \
     2>${work_dir}/err.log
 
 #python nmt.py \

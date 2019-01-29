@@ -17,7 +17,7 @@ from docopt import docopt
 import json
 import torch
 
-from utils import read_corpus, input_transpose
+from utils import input_transpose, read_corpus_de_en
 
 
 class VocabEntry(object):
@@ -154,9 +154,9 @@ if __name__ == '__main__':
 
     print('read in sentences: %s' % args['--train'])
 
-    src_sents, tgt_sents = read_corpus(args['--train'])
+    src_sents = read_corpus_de_en(args['--train'], source='src')
 
-    vocab = CDVocab.build(src_sents + tgt_sents, int(args['--size']), int(args['--freq-cutoff']))
+    vocab = CDVocab.build(src_sents, int(args['--size']), int(args['--freq-cutoff']))
     print('generated vocabulary, %d words' % (len(vocab.vocab)))
 
     vocab.save(args['VOCAB_FILE'])
