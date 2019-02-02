@@ -68,7 +68,6 @@ import slack
 from utils import batch_iter, LabelSmoothingLoss, read_corpus_de_en
 from vocab import Vocab, VocabEntry
 
-
 Hypothesis = namedtuple('Hypothesis', ['value', 'score'])
 
 from sumeval.metrics.rouge import RougeCalculator
@@ -540,8 +539,7 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
             {'*' * 50}
             Source: {' '.join(src_sent)}
             Target: {' '.join(tgt_sent)}
-            Top Hypothesis: {' '.join(top_hyp.value)}
-            Top Hypothesis Score: {top_hyp.score}
+            Top Hypothesis: {hypo2str(top_hyp)}
             """
             print(report, file=sys.stderr)
 
@@ -555,6 +553,8 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
 
     return valid_metric, {'elapsed': elapsed, 'top_hyps': top_hypotheses}
 
+def hypo2str(hypo):
+    return f"{' '.join(hypo.value)} / HypoScore:{hypo.score}"
 
 def evaluate_ppl(model, dev_data, batch_size=32):
     """

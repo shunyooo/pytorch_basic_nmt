@@ -11,12 +11,15 @@ from nltk.translate.bleu_score import SmoothingFunction
 from torch.autograd import Variable
 
 import slack
-from nmt import NMT, evaluate_ppl, evaluate_valid_metric
+from nmt import NMT, evaluate_ppl, evaluate_valid_metric, hypo2str
 from utils import batch_iter, read_raml_train_data, read_corpus_de_en
 from vocab import Vocab, CDVocab
 
 import torch.nn.functional as F
 
+from tensorboardX import SummaryWriter
+
+writer = SummaryWriter(comment='NMT')
 
 
 def _list_dict_update(data_dict, add_dict, mode, is_save=False):
@@ -130,10 +133,15 @@ def train_mle(args: Dict):
         for src_sents, tgt_sents in batch_iter(train_data, batch_size=train_batch_size, shuffle=True):
             train_iter += 1
 
-            if is_debug and train_iter == 1:
+            if train_iter == 1:
                 _info = f'原文例：{src_sents[0]}\n参照例：{tgt_sents[0]}'
                 print(_info)
                 print(_info, file=sys.stderr)
+
+                # model.eval()
+                # *** RuntimeError: Only tuples, lists and Variables supported as JIT inputs, but got str
+                # writer.add_graph(model, (src_sents, tgt_sents), verbose=True)
+                # model.train()
 
             optimizer.zero_grad()
 
@@ -143,6 +151,7 @@ def train_mle(args: Dict):
             example_losses = -model(src_sents, tgt_sents)
             batch_loss = example_losses.sum()
             loss = batch_loss / batch_size
+            writer.add_scalar('loss/train', loss, train_iter)
 
             loss.backward()
 
@@ -228,6 +237,11 @@ def train_mle(args: Dict):
                     args['--valid-metric']: valid_metric,
                     **eval_info,
                 }, 'validation', is_save=True)
+
+                writer.add_scalar('metric/dev_ppl', dev_ppl, train_iter)
+                writer.add_scalar('metric/' + args['--valid-metric'], valid_metric, train_iter)
+                if 'top_hyps' in eval_info:
+                    writer.add_text('top_hypos', hypo2str(eval_info['top_hyps'][0]), train_iter)
 
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
                 hist_valid_scores.append(valid_metric)

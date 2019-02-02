@@ -17,4 +17,9 @@ dependencies:
     - msgpack
     - sumeval
     - tensorboardX
+    - tensorboard
+    - tensorflow
+    - tensorflow-tensorboard
     - torch
+    - pandas
+    - tf-nightly
