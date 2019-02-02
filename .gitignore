@@ -6,4 +6,5 @@ models/*
 data/*
 tmp/*
 work_dir/*
+runs/*
 .ipynb_checkpoints/*
