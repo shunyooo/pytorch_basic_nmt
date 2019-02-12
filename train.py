@@ -13,7 +13,7 @@ from torch.autograd import Variable
 import slack
 from nmt import NMT, evaluate_ppl, evaluate_valid_metric, hypo2str
 from utils import batch_iter, read_raml_train_data, read_corpus_de_en
-from vocab import Vocab, CDVocab
+from vocab import Vocab
 
 import torch.nn.functional as F
 
@@ -77,7 +77,7 @@ def train_mle(args: Dict):
     model_save_path = args['--save-to']
     is_debug = bool(args['--debug'])
 
-    vocab = CDVocab.load_as_Vocab(args['--vocab'])
+    vocab = Vocab.load(args['--vocab'])
 
     model = NMT(embed_size=int(args['--embed-size']),
                 hidden_size=int(args['--hidden-size']),

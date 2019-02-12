@@ -84,37 +84,14 @@ class VocabEntry(object):
 
         word_freq = Counter(chain(*corpus))
         valid_words = [w for w, v in word_freq.items() if v >= freq_cutoff]
-        print(f'number of word types: {len(word_freq)}, number of word types w/ frequency >= {freq_cutoff}: {len(valid_words)}')
+        print(
+            f'number of word types: {len(word_freq)}, number of word types w/ frequency >= {freq_cutoff}: {len(valid_words)}')
 
         top_k_words = sorted(valid_words, key=lambda w: word_freq[w], reverse=True)[:size]
         for word in top_k_words:
             vocab_entry.add(word)
 
         return vocab_entry
-
-
-class CDVocab(object):
-    def __init__(self, vocab: VocabEntry):
-        self.vocab = vocab
-
-    @staticmethod
-    def build(sents, vocab_size, freq_cutoff) -> 'CDVocab':
-        print('initialize vocabulary ..')
-        all = VocabEntry.from_corpus(sents, vocab_size, freq_cutoff)
-        return CDVocab(all)
-
-    def save(self, file_path):
-        json.dump(dict(word2id=self.vocab.word2id), open(file_path, 'w'), indent=2)
-
-    @staticmethod
-    def load_as_Vocab(file_path):
-        entry = json.load(open(file_path, 'r'))
-        vocab = VocabEntry(entry['word2id'])
-
-        return Vocab(vocab, vocab)
-
-    def __repr__(self):
-        return 'CDVocab(all %d words)' % (len(self.vocab))
 
 
 class Vocab(object):
@@ -155,9 +132,10 @@ if __name__ == '__main__':
     print('read in sentences: %s' % args['--train'])
 
     src_sents = read_corpus_de_en(args['--train'], source='src')
+    tgt_sents = read_corpus_de_en(args['--train'], source='tgt')
 
-    vocab = CDVocab.build(src_sents, int(args['--size']), int(args['--freq-cutoff']))
-    print('generated vocabulary, %d words' % (len(vocab.vocab)))
+    vocab = Vocab.build(src_sents, tgt_sents, int(args['--size']), int(args['--freq-cutoff']))
+    print('generated vocabulary, source %d words, target %d words' % (len(vocab.src), len(vocab.tgt)))
 
     vocab.save(args['VOCAB_FILE'])
     print('vocabulary saved to %s' % args['VOCAB_FILE'])

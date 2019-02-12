@@ -24,7 +24,7 @@ python nmt.py \
     ${train_mode_val} \
     --cuda \
     --vocab ${vocab} \
-    --train-src ${train_src} \
+    --train ${train_src} \
     --train-tgt ${train_tgt} \
     --dev-src ${dev_src} \
     --dev-tgt ${dev_tgt} \
@@ -32,7 +32,7 @@ python nmt.py \
     --valid-niter 2400 \
     --batch-size 64 \
     --dev-decode-limit 2000 \
-    --valid-metric 'blue' \
+    --valid-metric 'pll' \
     --hidden-size 256 \
     --embed-size 256 \
     --uniform-init 0.1 \
