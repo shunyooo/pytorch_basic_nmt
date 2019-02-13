@@ -20,7 +20,7 @@ import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 
 writer = SummaryWriter(comment='NMT')
-
+DECODE_LOG_INDEXES = [0, 10, 100, 140, 150, 200, 210, 300]
 
 def _list_dict_update(data_dict, add_dict, mode, is_save=False):
     """
@@ -67,6 +67,8 @@ def train_mle(args: Dict):
 
     train_data = list(zip(train_data_src, train_data_tgt))
     dev_data = list(zip(dev_data_src, dev_data_tgt))
+
+    assert max(DECODE_LOG_INDEXES)+1 < len(dev_data), 'decode log時, dev_dataの範囲外のデータを参照します'
 
     train_batch_size = int(args['--batch-size'])
     ppl_batch_size = int(args['--ppl-batch-size'])
@@ -226,6 +228,7 @@ def train_mle(args: Dict):
                 print(_report, file=sys.stderr)
                 _notify_slack_if_need(_report, args)
 
+                # WARNING: これ意味あるか？
                 if 'dev_data' in log_data:
                     log_data['dev_data'] = dev_data[:int(args['--dev-decode-limit'])]
 
@@ -241,7 +244,9 @@ def train_mle(args: Dict):
                 writer.add_scalar('metric/dev_ppl', dev_ppl, train_iter)
                 writer.add_scalar('metric/' + args['--valid-metric'], valid_metric, train_iter)
                 if 'top_hyps' in eval_info:
-                    writer.add_text('top_hypos', hypo2str(eval_info['top_hyps'][0]), train_iter)
+                    for _i in DECODE_LOG_INDEXES:
+                        _ref = dev_data[_i]
+                        writer.add_text(f'top_hypos({_i}):{_ref}', hypo2str(eval_info['top_hyps'][_i]), train_iter)
 
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
                 hist_valid_scores.append(valid_metric)
