@@ -14,7 +14,6 @@ test_file=${data_dir}"/test.de-en.en"
 now=`date "+%Y%m%dT%H%M%S"`
 work_dir="work_dir/"${task_name}"/"${train_mode}"-debug/"${now}
 
-
 train_sample_tgt=${data_dir}"/samples.txt"
 
 mkdir -p ${work_dir}
@@ -22,6 +21,7 @@ echo save results to ${work_dir}
 # echo less ${work_dir}/err.log | pbcopy # only Mac
 
 train_mode_val="train_"${train_mode}
+#-m ipdb
 python nmt.py \
     ${train_mode_val} \
     --vocab ${vocab} \

@@ -15,6 +15,8 @@ Options:
     --dev=<file>                            dev source target file
     --vocab=<file>                          vocab file
     --raml-sample-file=<file>               path to the sampled targets
+    --reward-target-vector=<file>           path to the target vector for reward
+    --preprocessed-data=<file>              path to the preprocessed data for reward
     --seed=<int>                            seed [default: 0]
     --batch-size=<int>                      batch size [default: 32]
     --embed-size=<int>                      embedding size [default: 256]
@@ -47,13 +49,13 @@ Options:
     --ppl-batch-size=<int>                  batch size for calculate ppl in dev [default: 64]
     --debug                                 debug mode
 """
-
+import json
 import sys
 import time
 from collections import namedtuple
 
 import numpy as np
-from typing import List, Tuple, Dict, Set, Union
+from typing import List, Tuple, Dict
 from docopt import docopt
 from tqdm import tqdm
 from nltk.translate.bleu_score import corpus_bleu, sentence_bleu, SmoothingFunction
@@ -65,15 +67,16 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 import slack
-from utils import batch_iter, LabelSmoothingLoss, read_corpus_de_en
+from rewards.utils import euclid_sim
+from utils import batch_iter, LabelSmoothingLoss, read_corpus_de_en, hypo2str, get_text2vec_deviation_target
 from vocab import Vocab, VocabEntry
 
 Hypothesis = namedtuple('Hypothesis', ['value', 'score'])
+import pickle
 
 from sumeval.metrics.rouge import RougeCalculator
 
 rouge = RougeCalculator(stopwords=True, lang="en")
-
 
 class NMT(nn.Module):
 
@@ -274,7 +277,7 @@ class NMT(nn.Module):
         return (h_t, cell_t), att_t, alpha_t
 
     def dot_prod_attention(self, h_t: torch.Tensor, src_encoding: torch.Tensor, src_encoding_att_linear: torch.Tensor,
-                           mask: torch.Tensor=None) -> Tuple[torch.Tensor, torch.Tensor]:
+                           mask: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         # (batch_size, src_sent_len)
         att_weight = torch.bmm(src_encoding_att_linear, h_t.unsqueeze(2)).squeeze(2)
 
@@ -522,7 +525,8 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
     """
     # model.eval() is called in beam_search.
 
-    if args['--valid-metric'] == 'bleu':
+    metric = args['--valid-metric']
+    if metric in ['bleu', 'deviation']:
         _dev_data = dev_data[:int(args['--dev-decode-limit'])]
         dev_data_src = [src for src, tgt in _dev_data]
         print(f'begin decode {len(dev_data_src)} examples for bleu', file=sys.stderr)
@@ -543,8 +547,12 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
             """
             print(report, file=sys.stderr)
 
-        bleu_score = compute_corpus_level_bleu_score(dev_data_src, top_hypotheses)
-        valid_metric = bleu_score
+        if metric == 'blue':
+            bleu_score = compute_corpus_level_bleu_score(dev_data_src, top_hypotheses)
+            valid_metric = bleu_score
+        elif metric == 'deviation':
+            deviation_sim = compute_corpus_level_deviation_sim(top_hypotheses, args)
+            valid_metric = deviation_sim
 
     else:
         elapsed = 0
@@ -553,8 +561,6 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
 
     return valid_metric, {'elapsed': elapsed, 'top_hyps': top_hypotheses}
 
-def hypo2str(hypo):
-    return f"{' '.join(hypo.value)}"
 
 def evaluate_ppl(model, dev_data, batch_size=32):
     """
@@ -613,6 +619,24 @@ def compute_corpus_level_bleu_score(references: List[List[str]], hypotheses: Lis
                              [hyp.value for hyp in hypotheses])
 
     return bleu_score
+
+
+def compute_corpus_level_deviation_sim(hypotheses: List[Hypothesis], args: Dict) -> float:
+    """
+    デコード結果と目的のベクトルとの距離をコーパスレベルで測る。
+    Args:
+        hypotheses: a list of hypotheses, one for each reference
+
+    Returns:
+        deviation_sim: corpus-level deviation_sim score
+    """
+
+    text2vec_deviation, target_vec = get_text2vec_deviation_target(args)
+    # 計算
+    cal = lambda text: euclid_sim(target_vec, text2vec_deviation(text))
+    scores = np.array([cal(hyp.value) for hyp in hypotheses])
+    print(f'scores: {scores}, mean: {np.mean(scores)}')
+    return np.mean(scores)
 
 
 def compute_corpus_level_rouge_score(references: List[List[str]], hypotheses: List[Hypothesis]) -> float:

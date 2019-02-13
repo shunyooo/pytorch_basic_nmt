@@ -308,13 +308,15 @@ def text2vec_deviation_outer(df_word, topic_N):
         :return: list ベクトル
         """
         words_count = 0
-        vec = np.array(range(topic_N), dtype=float)
+        vec = np.zeros(topic_N, dtype=float)
         for word in text:
             if word in df_word_dict.keys():
                 deviations = np.array(list(df_word_dict[word].values()))
                 vec += deviations
                 words_count += 1
-        return vec / words_count
+        vec = vec / words_count if words_count > 0 else np.zeros(topic_N, dtype=float)
+        print(f'{" ".join(text)} | vec: {vec} | words_count: {words_count}')
+        return vec
 
     return do
 
