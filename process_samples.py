@@ -125,7 +125,7 @@ def sample_ngram(args):
 
     # 専門性算出 高速化用
     text2vec_deviation = None
-    if args.reward == 'deviation':
+    if 'deviation' in args.reward:
         text2vec_deviation = text2vec_deviation_outer(
             preprocessed_data.df_word,
             preprocessed_data.model.num_topics
@@ -137,6 +137,7 @@ def sample_ngram(args):
     if target_vec_path :
         with open(target_vec_path, 'r') as f:
             target_vec = np.array(json.load(f))
+            print(f'reward target vec: {target_vec}')
 
 
     print('sample_ngram', len(src_sents), len(tgt_sents), f_out)
@@ -172,12 +173,20 @@ def sample_ngram(args):
 
         # compute bleu scores or edit distances and rank the samples by bleu scores
         rewards = []
+        _tgt_sent_vec = None
         for tgt_sample, tgt_sample_distort_rate in zip(tgt_samples, tgt_samples_distort_rates):
             if args.reward == 'bleu':
                 reward = sentence_bleu([tgt_sent], tgt_sample, smoothing_function=sm_func)
             elif args.reward == 'deviation':
                 _sample_vec = text2vec_deviation(tgt_sample)
                 reward = euclid_sim(target_vec, _sample_vec)
+            elif args.reward == 'deviation_diff':
+                _tgt_sent_vec = _tgt_sent_vec if _tgt_sent_vec is not None else text2vec_deviation(tgt_sent)
+                _sample_vec = text2vec_deviation(tgt_sample)
+                _diff_vec = _sample_vec - _tgt_sent_vec
+                _tgt_index = target_vec.argmax() # WARRING: target vec = 1,0,0,0,0 とonehotの前提
+                _diff = _diff_vec[_tgt_index]
+                reward = max(_diff, 0)
             elif args.reward == 'lda':
                 reward = sim_sents_lda(tgt_sent, tgt_sample,
                                        preprocessed_data.model,
@@ -342,7 +351,7 @@ if __name__ == '__main__':
     parser.add_argument('--sample_file', type=str)
     parser.add_argument('--output', type=str, required=True)
     parser.add_argument('--sample_size', type=int, default=100)
-    parser.add_argument('--reward', choices=['bleu', 'edit_dist', 'lda', 'deviation'], default='bleu')
+    parser.add_argument('--reward', choices=['bleu', 'edit_dist', 'lda', 'deviation', 'deviation_diff'], default='bleu')
     parser.add_argument('--max_ngram_size', type=int, default=4)
     parser.add_argument('--temp', type=float, default=0.5)
     parser.add_argument('--smooth_bleu', action='store_true', default=False)
