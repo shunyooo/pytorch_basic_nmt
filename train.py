@@ -22,6 +22,7 @@ from tensorboardX import SummaryWriter
 writer = SummaryWriter(comment='NMT')
 DECODE_LOG_INDEXES = [0, 10, 100, 140, 150, 200, 210, 300]
 
+
 def _list_dict_update(data_dict, add_dict, mode, is_save=False):
     """
     data_dictにadd_dictを結合する。
@@ -57,8 +58,18 @@ def _notify_slack_if_need(text, args):
         slack.post(text)
 
 
-def train_mle(args: Dict):
+def _log_decode_to_tensorboard(global_step, dev_data=None, eval_info=None):
+    for _i in DECODE_LOG_INDEXES:
+        text = ''
+        if global_step < 0:
+            _input = ' '.join(dev_data[_i][0])
+            text = f'入力：\n{_input}'
+        else:
+            text = hypo2str(eval_info['top_hyps'][_i])
+        writer.add_text(f'top_hypos【{_i}】)', text, global_step)
 
+
+def train_mle(args: Dict):
     train_data_src = read_corpus_de_en(args['--train'], source='src')
     train_data_tgt = read_corpus_de_en(args['--train'], source='tgt')
 
@@ -112,8 +123,10 @@ def train_mle(args: Dict):
     hist_valid_scores = []
     train_time = begin_time = time.time()
 
-    log_data = {'args': args}  # log用, あとで学習の収束とか見るよう
+    # log用, あとで学習の収束とか見るよう
+    log_data = {'args': args}
 
+    # slack
     _info = f"""
         begin Maximum Likelihood training
         ・学習：{len(train_data)}ペア
@@ -129,6 +142,9 @@ def train_mle(args: Dict):
     {_info}
     {args}
     """, args)
+
+    # log decode tensorboard
+    _log_decode_to_tensorboard(-1, dev_data=dev_data)
 
     while True:
         epoch += 1
@@ -246,10 +262,7 @@ def train_mle(args: Dict):
                 writer.add_scalar('metric/' + args['--valid-metric'], valid_metric, train_iter)
                 if 'top_hyps' in eval_info:
                     # log to tensorboard
-                    for _i in DECODE_LOG_INDEXES:
-                        _ref = ' '.join(dev_data[_i][0])
-                        _ref = f'{_ref[:50]}...' if len(_ref) > 50 else _ref
-                        writer.add_text(f'top_hypos({_i}):{_ref}', hypo2str(eval_info['top_hyps'][_i]), train_iter)
+                    _log_decode_to_tensorboard(train_iter, eval_info=eval_info)
 
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
                 hist_valid_scores.append(valid_metric)
@@ -298,6 +311,7 @@ def train_mle(args: Dict):
                     _notify_slack_if_need(_report, args)
                     print(_report, file=sys.stderr)
                     exit(0)
+
 
 def train_raml(args: Dict):
     raise Exception("train_raml 未実装です。")
