@@ -68,8 +68,6 @@ def train_mle(args: Dict):
     train_data = list(zip(train_data_src, train_data_tgt))
     dev_data = list(zip(dev_data_src, dev_data_tgt))
 
-    assert max(DECODE_LOG_INDEXES)+1 < len(dev_data), 'decode log時, dev_dataの範囲外のデータを参照します'
-
     train_batch_size = int(args['--batch-size'])
     ppl_batch_size = int(args['--ppl-batch-size'])
     clip_grad = float(args['--clip-grad'])
@@ -77,7 +75,10 @@ def train_mle(args: Dict):
     log_every = int(args['--log-every'])
     notify_slack_every = int(args['--notify-slack-every'])
     model_save_path = args['--save-to']
+    dev_decode_limit = int(args['--dev-decode-limit'])
     is_debug = bool(args['--debug'])
+
+    assert max(DECODE_LOG_INDEXES) < dev_decode_limit < len(dev_data), 'DECODEのログindexか, 数指定が不正です'
 
     vocab = Vocab.load(args['--vocab'])
 
@@ -228,9 +229,9 @@ def train_mle(args: Dict):
                 print(_report, file=sys.stderr)
                 _notify_slack_if_need(_report, args)
 
-                # WARNING: これ意味あるか？
+                # WARNING: これ意味あるか？<-意味あった。　evaluate_valid_metricないで抽出している
                 if 'dev_data' in log_data:
-                    log_data['dev_data'] = dev_data[:int(args['--dev-decode-limit'])]
+                    log_data['dev_data'] = dev_data[:dev_decode_limit]
 
                 _list_dict_update(log_data, {
                     'epoch': epoch,
@@ -245,7 +246,7 @@ def train_mle(args: Dict):
                 writer.add_scalar('metric/' + args['--valid-metric'], valid_metric, train_iter)
                 if 'top_hyps' in eval_info:
                     for _i in DECODE_LOG_INDEXES:
-                        _ref = dev_data[_i]
+                        _ref = ' '.join(dev_data[_i][0])
                         writer.add_text(f'top_hypos({_i}):{_ref}', hypo2str(eval_info['top_hyps'][_i]), train_iter)
 
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
