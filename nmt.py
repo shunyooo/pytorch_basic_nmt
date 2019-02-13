@@ -526,7 +526,7 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
     # model.eval() is called in beam_search.
 
     metric = args['--valid-metric']
-    if metric in ['bleu', 'deviation']:
+    if metric in ['bleu', 'deviation', 'deviation_diff']:
         _dev_data = dev_data[:int(args['--dev-decode-limit'])]
         dev_data_src = [src for src, tgt in _dev_data]
         print(f'begin decode {len(dev_data_src)} examples for bleu', file=sys.stderr)
