@@ -553,6 +553,9 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
         elif metric == 'deviation':
             deviation_sim = compute_corpus_level_deviation_sim(top_hypotheses, args)
             valid_metric = deviation_sim
+        elif metric == 'deviation_diff':
+            deviation_diff = compute_corpus_level_deviation_diff(dev_data_src, top_hypotheses, args)
+            valid_metric = deviation_diff
 
     else:
         elapsed = 0
@@ -620,6 +623,28 @@ def compute_corpus_level_bleu_score(references: List[List[str]], hypotheses: Lis
 
     return bleu_score
 
+
+def compute_corpus_level_deviation_diff(references: List[List[str]], hypotheses: List[Hypothesis], args: Dict) -> float:
+    """
+    デコード結果と参照=入力の、目的のインデックスにおける差分をコーパスレベルで測る。
+    Args:
+        references: a list of gold-standard reference target sentences
+        hypotheses: a list of hypotheses, one for each reference
+
+    Returns:
+        deviation_sim: corpus-level deviation_sim score
+    """
+
+    text2vec_deviation, target_vec = get_text2vec_deviation_target(args)
+    _tgt_index = target_vec.argmax()
+
+    # 計算
+    cal_diff_vec = lambda hyp, tgt: text2vec_deviation(hyp) - text2vec_deviation(tgt)
+    cal = lambda hyp, tgt: max(cal_diff_vec(hyp, tgt)[_tgt_index], 0)
+
+    scores = np.array([cal(hyp.value, ref) for hyp, ref in zip(hypotheses, references)])
+    print(f'scores: {scores}, mean: {np.mean(scores)}')
+    return np.mean(scores)
 
 def compute_corpus_level_deviation_sim(hypotheses: List[Hypothesis], args: Dict) -> float:
     """
