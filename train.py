@@ -229,7 +229,7 @@ def train_mle(args: Dict):
                 print(_report, file=sys.stderr)
                 _notify_slack_if_need(_report, args)
 
-                # WARNING: これ意味あるか？<-意味あった。　evaluate_valid_metricないで抽出している
+                # WARNING: これ意味あるか？<-意味あった。　evaluate_valid_metric() 内で抽出しているので、それに合わせている
                 if 'dev_data' in log_data:
                     log_data['dev_data'] = dev_data[:dev_decode_limit]
 
@@ -245,8 +245,10 @@ def train_mle(args: Dict):
                 writer.add_scalar('metric/dev_ppl', dev_ppl, train_iter)
                 writer.add_scalar('metric/' + args['--valid-metric'], valid_metric, train_iter)
                 if 'top_hyps' in eval_info:
+                    # log to tensorboard
                     for _i in DECODE_LOG_INDEXES:
                         _ref = ' '.join(dev_data[_i][0])
+                        _ref = f'{_ref[:50]}...' if len(_ref) > 50 else _ref
                         writer.add_text(f'top_hypos({_i}):{_ref}', hypo2str(eval_info['top_hyps'][_i]), train_iter)
 
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)

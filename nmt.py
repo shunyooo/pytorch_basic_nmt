@@ -554,7 +554,7 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
     return valid_metric, {'elapsed': elapsed, 'top_hyps': top_hypotheses}
 
 def hypo2str(hypo):
-    return f"{' '.join(hypo.value)} / HypoScore:{hypo.score}"
+    return f"{' '.join(hypo.value)}"
 
 def evaluate_ppl(model, dev_data, batch_size=32):
     """
