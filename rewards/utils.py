@@ -315,7 +315,7 @@ def text2vec_deviation_outer(df_word, topic_N):
                 vec += deviations
                 words_count += 1
         vec = vec / words_count if words_count > 0 else np.zeros(topic_N, dtype=float)
-        print(f'{" ".join(text)} | vec: {vec} | words_count: {words_count}')
+        # print(f'{" ".join(text)} | vec: {vec} | words_count: {words_count}')
         return vec
 
     return do
