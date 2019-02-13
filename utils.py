@@ -9,6 +9,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pickle
 
+from rewards.utils import preprocessing
+
 SENTENCE_START = '<s>'
 SENTENCE_END = '</s>'
 
@@ -32,7 +34,9 @@ def read_corpus_de_en(file_path, source):
     """
     data = []
     for line in open(file_path):
-        sent = line.strip().split(' ')
+        sent = line.strip()
+        sent = preprocessing(sent)
+        sent = sent.split(' ')
         # only append <s> and </s> to the target sentence
         if source == 'tgt':
             sent = [SENTENCE_START] + sent + [SENTENCE_END]
