@@ -373,3 +373,17 @@ def sim_sents_deviation_legacy(text1, text2, df_word, topic_N):
     distance = euclid_distance(t2v(text1), t2v(text2))
     # 距離から類似度変換。0.0 - 1.0の間をとるように
     return 1 / (1 + distance)
+
+
+def sent_length(text):
+    return len(' '.join(text))
+
+
+def diff_sents_length_shorten(text1, text2):
+    """
+
+    :param text1: 比較対象
+    :param text2: 生成文
+    :return:
+    """
+    return sent_length(text1) - sent_length(text2)

@@ -11,7 +11,8 @@ import re
 import argparse
 import torch
 
-from rewards.utils import sim_sents_lda, sim_sents_deviation_outer, text2vec_deviation_outer, euclid_sim
+from rewards.utils import sim_sents_lda, sim_sents_deviation_outer, text2vec_deviation_outer, euclid_sim, \
+    diff_sents_length_shorten
 from utils import read_corpus_de_en
 import numpy as np
 from scipy.misc import comb
@@ -134,7 +135,7 @@ def sample_ngram(args):
     # 目標とする専門性のベクトル
     target_vec = None
     target_vec_path = args.target_vec
-    if target_vec_path :
+    if target_vec_path:
         with open(target_vec_path, 'r') as f:
             target_vec = np.array(json.load(f))
             print(f'reward target vec: {target_vec}')
@@ -191,6 +192,8 @@ def sample_ngram(args):
                 reward = sim_sents_lda(tgt_sent, tgt_sample,
                                        preprocessed_data.model,
                                        preprocessed_data.dictionary)
+            elif args.reward == 'shorten':
+                reward = diff_sents_length_shorten(tgt_sent, tgt_sample)
             else:
                 reward = -tgt_sample_distort_rate
 
@@ -351,7 +354,7 @@ if __name__ == '__main__':
     parser.add_argument('--sample_file', type=str)
     parser.add_argument('--output', type=str, required=True)
     parser.add_argument('--sample_size', type=int, default=100)
-    parser.add_argument('--reward', choices=['bleu', 'edit_dist', 'lda', 'deviation', 'deviation_diff'], default='bleu')
+    parser.add_argument('--reward', choices=['bleu', 'edit_dist', 'lda', 'deviation', 'deviation_diff', 'shorten'], default='bleu')
     parser.add_argument('--max_ngram_size', type=int, default=4)
     parser.add_argument('--temp', type=float, default=0.5)
     parser.add_argument('--smooth_bleu', action='store_true', default=False)

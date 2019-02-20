@@ -67,7 +67,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 import slack
-from rewards.utils import euclid_sim
+from rewards.utils import euclid_sim, diff_sents_length_shorten
 from utils import batch_iter, LabelSmoothingLoss, read_corpus_de_en, hypo2str, get_text2vec_deviation_target
 from vocab import Vocab, VocabEntry
 
@@ -526,7 +526,7 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
     # model.eval() is called in beam_search.
 
     metric = args['--valid-metric']
-    if metric in ['bleu', 'deviation', 'deviation_diff']:
+    if metric in ['bleu', 'deviation', 'deviation_diff', 'shorten']:
         _dev_data = dev_data[:int(args['--dev-decode-limit'])]
         dev_data_src = [src for src, tgt in _dev_data]
         print(f'begin decode {len(dev_data_src)} examples for bleu', file=sys.stderr)
@@ -556,6 +556,9 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
         elif metric == 'deviation_diff':
             deviation_diff = compute_corpus_level_deviation_diff(dev_data_src, top_hypotheses, args)
             valid_metric = deviation_diff
+        elif metric == 'shorten':
+            shorten_diff = compute_corpus_level_shorten_diff(dev_data_src, top_hypotheses, args)
+            valid_metric = shorten_diff
 
     else:
         elapsed = 0
@@ -624,6 +627,21 @@ def compute_corpus_level_bleu_score(references: List[List[str]], hypotheses: Lis
     return bleu_score
 
 
+def compute_corpus_level_shorten_diff(references: List[List[str]], hypotheses: List[Hypothesis], args: Dict) -> float:
+    """
+    どれだけ短くなったかをコーパスレベルで計測。
+    Args:
+        references: a list of gold-standard reference target sentences
+        hypotheses: a list of hypotheses, one for each reference
+
+    Returns:
+        deviation_sim: corpus-level deviation_sim score
+    """
+    scores = np.array([diff_sents_length_shorten(ref, hyp.value) for hyp, ref in zip(hypotheses, references)])
+    print(f'scores: {scores}, mean: {np.mean(scores)}')
+    return np.mean(scores)
+
+
 def compute_corpus_level_deviation_diff(references: List[List[str]], hypotheses: List[Hypothesis], args: Dict) -> float:
     """
     デコード結果と参照=入力の、目的のインデックスにおける差分をコーパスレベルで測る。
@@ -645,6 +663,7 @@ def compute_corpus_level_deviation_diff(references: List[List[str]], hypotheses:
     scores = np.array([cal(hyp.value, ref) for hyp, ref in zip(hypotheses, references)])
     print(f'scores: {scores}, mean: {np.mean(scores)}')
     return np.mean(scores)
+
 
 def compute_corpus_level_deviation_sim(hypotheses: List[Hypothesis], args: Dict) -> float:
     """
