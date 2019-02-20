@@ -259,7 +259,7 @@ def euclid_distance(v1, v2):
 
 
 def euclid_sim(v1, v2):
-    """# 距離から類似度変換。0.0 - 1.0の間をとるように"""
+    """ 距離から類似度変換。0.0 - 1.0の間をとるように"""
     return 1 / (1 + euclid_distance(v1, v2))
 
 

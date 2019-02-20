@@ -223,7 +223,7 @@ def log_decode_to_tensorboard(global_step, log_indexes, writer, dev_data=None, e
 
 def log_decode_to_tensorboard_raml(global_step, log_indexes, writer, args=None, dev_data=None, eval_info=None):
     text2vec_deviation, target_vec = get_text2vec_deviation_target(args)
-    np.set_printoptions(precision=1, floatmode='maxprec')
+    np.set_printoptions(precision=3, floatmode='maxprec')
     for _i in log_indexes:
         text = ''
         if global_step < 0:
