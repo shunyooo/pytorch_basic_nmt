@@ -140,10 +140,14 @@ def train_raml(args: Dict):
                     if raml_sample_size >= len(tgt_samples_all):
                         tgt_samples = tgt_samples_all
                     else:
-                        tgt_samples_id = np.random.choice(range(1, len(tgt_samples_all)),
-                                                          size=raml_sample_size - 1, replace=False)
+                        # tgt_samples_id = np.random.choice(range(1, len(tgt_samples_all)),
+                        #                                  size=raml_sample_size - 1, replace=False)
+
                         # [ground truth y*] + samples
-                        tgt_samples = [tgt_samples_all[0]] + [tgt_samples_all[i] for i in tgt_samples_id]
+                        # WARNING: ground truthが入っていない
+                        # tgt_samples = [tgt_samples_all[0]] + [tgt_samples_all[i] for i in tgt_samples_id]
+
+                        tgt_samples = tgt_samples_all[:raml_sample_size]
 
                     raml_src_sents.extend([src_sent] * len(tgt_samples))
                     raml_tgt_sents.extend([['<s>'] + sent.split(' ') + ['</s>'] for sent, weight in tgt_samples])
