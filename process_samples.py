@@ -187,7 +187,8 @@ def sample_ngram(args):
                 _diff_vec = _sample_vec - _tgt_sent_vec
                 _tgt_index = target_vec.argmax() # WARRING: target vec = 1,0,0,0,0 とonehotの前提
                 _diff = _diff_vec[_tgt_index]
-                reward = max(_diff, 0)
+                # reward = max(_diff, 0)
+                reward = _diff
             elif args.reward == 'lda':
                 reward = sim_sents_lda(tgt_sent, tgt_sample,
                                        preprocessed_data.model,

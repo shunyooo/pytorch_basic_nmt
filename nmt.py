@@ -658,7 +658,8 @@ def compute_corpus_level_deviation_diff(references: List[List[str]], hypotheses:
 
     # 計算
     cal_diff_vec = lambda hyp, tgt: text2vec_deviation(hyp) - text2vec_deviation(tgt)
-    cal = lambda hyp, tgt: max(cal_diff_vec(hyp, tgt)[_tgt_index], 0)
+    cal = lambda hyp, tgt: cal_diff_vec(hyp, tgt)[_tgt_index]
+    # cal = lambda hyp, tgt: max(cal_diff_vec(hyp, tgt)[_tgt_index], 0)
 
     scores = np.array([cal(hyp.value, ref) for hyp, ref in zip(hypotheses, references)])
     print(f'scores: {scores}, mean: {np.mean(scores)}')
