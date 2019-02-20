@@ -350,7 +350,7 @@ def text2vec_deviation_legacy(text, df_word, topic_N):
     :return: list ベクトル
     """
     col_names = [f'{DEVIATION}{t}' for t in range(topic_N)]
-    vec = np.array(range(topic_N), dtype=float)
+    vec = np.zeros(topic_N, dtype=float)
     words_count = 0
     for word in text:
         if word in df_word.index:
