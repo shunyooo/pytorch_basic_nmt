@@ -14,8 +14,8 @@ test_file=${data_dir}"/test.de-en.en"
 now=`date "+%Y%m%dT%H%M%S"`
 work_dir="work_dir/"${task_name}"/"${train_mode}"-debug/"${now}
 
-raml_sample_file=${data_dir}"/samples_deviation.txt"
-reward_target_vec=${data_dir}"/target_vec.json"
+valid_metric='shorten'
+raml_sample_file=${data_dir}"/samples_shorten.txt"
 temp="0.6"
 
 reward_target_vector=${data_dir}"/target_vec.json"
@@ -37,7 +37,7 @@ python nmt.py \
     --log-every 1 \
     --batch-size 1 \
     --dev-decode-limit 20 \
-    --valid-metric 'deviation' \
+    --valid-metric ${valid_metric} \
     --hidden-size 256 \
     --embed-size 256 \
     --uniform-init 0.1 \
@@ -55,6 +55,8 @@ python nmt.py \
     --reward-target-vector ${reward_target_vector} \
     --preprocessed-data ${preprocessed_data} \
     2>${work_dir}/err.log
+
+less ${work_dir}/err.log
 
 #python nmt.py \
 #    decode \
