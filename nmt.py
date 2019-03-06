@@ -66,7 +66,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 from rewards.cons import REWARD_LIST
-from utils import batch_iter, LabelSmoothingLoss, read_corpus_de_en, hypo2str
+from utils import batch_iter, LabelSmoothingLoss, read_corpus_de_en, hypo2str, remove_s_tag
 
 Hypothesis = namedtuple('Hypothesis', ['value', 'score'])
 
@@ -521,7 +521,8 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args, reward_calc):
     if metric in REWARD_LIST:
         _dev_data = dev_data[:int(args['--dev-decode-limit'])]
         dev_data_src = [src for src, tgt in _dev_data]
-        print(f'begin decode {len(dev_data_src)} examples for bleu', file=sys.stderr)
+        dev_data_tgt = [tgt for src, tgt in _dev_data]
+        print(f'begin decode {len(dev_data_src)} examples for {metric}', file=sys.stderr)
         begin_time = time.time()
         hypotheses = beam_search(model, dev_data_src,
                                  beam_size=int(args['--beam-size']),
@@ -532,15 +533,17 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args, reward_calc):
         top_hypotheses_sents = [hyps.value for hyps in top_hypotheses]
 
         for (src_sent, tgt_sent), top_hyp in zip(_dev_data, top_hypotheses):
+            score = reward_calc.compute_sentence_reward(tgt_sent, top_hyp.value)
             report = f"""
             {'*' * 50}
-            Source: {' '.join(src_sent)}
-            Target: {' '.join(tgt_sent)}
+            Source        : {' '.join(src_sent)}
+            Target        : {' '.join(remove_s_tag(tgt_sent))}
             Top Hypothesis: {hypo2str(top_hyp)}
+            {metric}: {score}
             """
             print(report, file=sys.stderr)
 
-        valid_metric = reward_calc.compute_corpus_reward(dev_data_src, top_hypotheses_sents)
+        valid_metric = reward_calc.compute_corpus_reward(dev_data_tgt, top_hypotheses_sents)
 
     else:
         elapsed = 0

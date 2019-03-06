@@ -219,19 +219,30 @@ def log_decode_to_tensorboard(global_step, log_indexes, writer, dev_data=None, e
         writer.add_text(f'top_hypos【{_i}】', text, global_step)
 
 
-def log_decode_to_tensorboard_raml(global_step, log_indexes, writer, args=None, dev_data=None, eval_info=None):
+def log_decode_to_tensorboard_raml(global_step, log_indexes, writer, reward_calc, args=None, dev_data=None,
+                                   eval_info=None):
     np.set_printoptions(precision=3, floatmode='maxprec')
+    metric = args['--valid-metric']
     for _i in log_indexes:
         text = ''
+        _input, _tgt = dev_data[_i]
+        _input_str = ' '.join(_input)
         if global_step < 0:
-            _input = dev_data[_i][0]
-            _input_str = ' '.join(_input)
-            # text = f'''| Input | Deviation | Target | Similarity |\n| ---------- | ---------- | ---------- | ---------- |\n| {_input_str} | {_deviation} | {target_vec} | {_sim} |'''
-            # print(f'log_decode_to_tensorboard input: {text}')
+            score = reward_calc.compute_sentence_reward(_tgt, _input)
+            text = f'''| Input | {metric} |\n| ---------- | ---------- |\n| {_input_str} | {score} |'''
+            print(f'log_decode_to_tensorboard input: {text}')
         else:
             hypo = eval_info['top_hyps'][_i]
-            # text = f'''| Text    | Deviation   | Hypo Score | Similarity |\n| ------- | ---- | ---- | ---- |\n| {hypo2str(hypo)} | {_deviation} | {hypo.score} | {_sim} |'''
+            score = reward_calc.compute_sentence_reward(_tgt, hypo.value)
+            text = f'''| Text | {metric} | Hypo Score |\n| ------- | ---- | ---- |\n| {hypo2str(hypo)} | {score} | {hypo.score} | '''
         writer.add_text(f'top_hypos【{_i}】', text, global_step)
+
 
 def hypo2str(hypo):
     return f"{' '.join(hypo.value)}"
+
+
+def remove_s_tag(word_list):
+    if word_list[0] == '<s>':
+        word_list = word_list[1:-1]
+    return word_list
