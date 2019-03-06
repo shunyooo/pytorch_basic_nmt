@@ -9,8 +9,7 @@ import pandas as pd
 import numpy as np
 from gensim.models import ldamodel
 
-LDA = "LDA"
-DEVIATION = "Deviation"
+from .cons import DEVIATION
 
 
 # --- MARK: 読み込み, 前処理系 ---
@@ -288,102 +287,3 @@ def sim_sents_lda(text1, text2, model, dictionary):
     """
     npvec = lambda s: np.array(text2vec_lda(s, model, dictionary))
     return cos_sim(npvec(text1), npvec(text2))
-
-
-def text2vec_deviation_outer(df_word, topic_N):
-    """
-    文を専門性（Deviation）に基づくベクトルに変換
-    高速化のため、辞書に変換し、保存
-    :param df_word: 単語のDataFrame
-    :param topic_N: トピック数
-    :return: 計算コールバック
-    """
-    col_names = [f'{DEVIATION}{t}' for t in range(topic_N)]
-    df_word_dict = df_word[col_names].T.to_dict()
-
-    def do(text):
-        """
-        文をベクトルに変換
-        :param text:  ['word', 'word', 'word', 'word']
-        :return: list ベクトル
-        """
-        words_count = 0
-        vec = np.zeros(topic_N, dtype=float)
-        for word in text:
-            if word in df_word_dict.keys():
-                deviations = np.array(list(df_word_dict[word].values()))
-                vec += deviations
-                words_count += 1
-        vec = vec / words_count if words_count > 0 else np.zeros(topic_N, dtype=float)
-        # print(f'{" ".join(text)} | vec: {vec} | words_count: {words_count}')
-        return vec
-
-    return do
-
-
-def sim_sents_deviation_outer(df_word, topic_N):
-    """
-    専門性（Deviation）による文書類似度の計測。
-    高速化に対応
-    :param text1:
-    :param text2:
-    :param df_word:
-    :param topic_N:
-    :return:
-    """
-    text2vec_deviation = text2vec_deviation_outer(df_word, topic_N)
-    t2v = lambda text: text2vec_deviation(text)
-
-    def do(text1, text2):
-        return euclid_sim(t2v(text1), t2v(text2))
-
-    return do
-
-
-def text2vec_deviation_legacy(text, df_word, topic_N):
-    """
-    文を専門性（Deviation）に基づくベクトルに変換
-    WARNING: 遅い
-    :param text:  ['word', 'word', 'word', 'word']
-    :param df_word: 単語のDataFrame
-    :param topic_N: トピック数
-    :return: list ベクトル
-    """
-    col_names = [f'{DEVIATION}{t}' for t in range(topic_N)]
-    vec = np.zeros(topic_N, dtype=float)
-    words_count = 0
-    for word in text:
-        if word in df_word.index:
-            deviations = df_word[col_names].loc[word]
-            vec += deviations.values
-            words_count += 1
-    return vec / words_count
-
-
-def sim_sents_deviation_legacy(text1, text2, df_word, topic_N):
-    """
-    専門性（Deviation）による文書類似度の計測
-    :param text1:
-    :param text2:
-    :param df_word:
-    :param topic_N:
-    :return:
-    """
-    t2v = lambda text: text2vec_deviation_legacy(text, df_word, topic_N)
-    distance = euclid_distance(t2v(text1), t2v(text2))
-    # 距離から類似度変換。0.0 - 1.0の間をとるように
-    return 1 / (1 + distance)
-
-
-def sent_length(text):
-    return len(' '.join(text))
-
-
-def diff_sents_length_shorten(text1, text2):
-    """
-
-    :param text1: 比較対象
-    :param text2: 生成文
-    :return:
-    """
-    return sent_length(text1) - sent_length(text2)

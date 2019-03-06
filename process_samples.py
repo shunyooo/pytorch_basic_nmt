@@ -1,22 +1,17 @@
 from __future__ import print_function
 
-import json
-import pickle
 import time
 
 from nltk.translate.bleu_score import sentence_bleu
-from nltk.translate.bleu_score import SmoothingFunction
-import sys
 import re
 import argparse
 import torch
 
-from rewards.utils import sim_sents_lda, sim_sents_deviation_outer, text2vec_deviation_outer, euclid_sim, \
-    diff_sents_length_shorten
+from rewards.loader import load_reward_calculator
 from utils import read_corpus_de_en
 import numpy as np
 from scipy.misc import comb
-from vocab import Vocab, VocabEntry
+from vocab import Vocab
 import math
 
 
@@ -110,36 +105,15 @@ def sample_ngram(args):
     vocab = Vocab.load(args.vocab)
     tgt_vocab = vocab.tgt
 
-    smooth_bleu = args.smooth_bleu
-    sm_func = None
-    if smooth_bleu:
-        sm_func = SmoothingFunction().method3
-
     begin_time = time.time()
 
-    # 専門性, LDA, 算出用
-    preprocessed_data = None
-    data_path = args.preprocessed_data
-    if data_path:
-        with open(data_path, "rb") as f:
-            preprocessed_data = pickle.load(f)
-
-    # 専門性算出 高速化用
-    text2vec_deviation = None
-    if 'deviation' in args.reward:
-        text2vec_deviation = text2vec_deviation_outer(
-            preprocessed_data.df_word,
-            preprocessed_data.model.num_topics
-        )
-
-    # 目標とする専門性のベクトル
-    target_vec = None
-    target_vec_path = args.target_vec
-    if target_vec_path:
-        with open(target_vec_path, 'r') as f:
-            target_vec = np.array(json.load(f))
-            print(f'reward target vec: {target_vec}')
-
+    # TODO: docopt移行
+    reward_calc = load_reward_calculator({
+        '--valid-metric': args.reward,
+        '--preprocessed-data': args.preprocessed_data,
+        '--reward-target-vector': args.target_vec,
+        '--smooth-bleu': args.smooth_bleu,
+    })
 
     print('sample_ngram', len(src_sents), len(tgt_sents), f_out)
     for i, (src_sent, tgt_sent) in enumerate(zip(src_sents, tgt_sents)):
@@ -176,28 +150,7 @@ def sample_ngram(args):
         rewards = []
         _tgt_sent_vec = None
         for tgt_sample, tgt_sample_distort_rate in zip(tgt_samples, tgt_samples_distort_rates):
-            if args.reward == 'bleu':
-                reward = sentence_bleu([tgt_sent], tgt_sample, smoothing_function=sm_func)
-            elif args.reward == 'deviation':
-                _sample_vec = text2vec_deviation(tgt_sample)
-                reward = euclid_sim(target_vec, _sample_vec)
-            elif args.reward == 'deviation_diff':
-                _tgt_sent_vec = _tgt_sent_vec if _tgt_sent_vec is not None else text2vec_deviation(tgt_sent)
-                _sample_vec = text2vec_deviation(tgt_sample)
-                _diff_vec = _sample_vec - _tgt_sent_vec
-                _tgt_index = target_vec.argmax() # WARRING: target vec = 1,0,0,0,0 とonehotの前提
-                _diff = _diff_vec[_tgt_index]
-                # reward = max(_diff, 0)
-                reward = _diff
-            elif args.reward == 'lda':
-                reward = sim_sents_lda(tgt_sent, tgt_sample,
-                                       preprocessed_data.model,
-                                       preprocessed_data.dictionary)
-            elif args.reward == 'shorten':
-                reward = diff_sents_length_shorten(tgt_sent, tgt_sample)
-            else:
-                reward = -tgt_sample_distort_rate
-
+            reward = reward_calc.compute_sentence_reward(tgt_sent, tgt_sample)
             rewards.append(reward)
 
         tgt_ranks = sorted(range(len(tgt_samples)), key=lambda i: rewards[i], reverse=True)
@@ -213,6 +166,9 @@ def sample_ngram(args):
 
         if i % 1000 == 0 and i != 0:
             print('done %d [%d s].' % (i, time.time() - begin_time))
+            if args.is_debug:
+                print('debug mode!! stop')
+                break;
 
     f_out.close()
 
@@ -359,6 +315,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_ngram_size', type=int, default=4)
     parser.add_argument('--temp', type=float, default=0.5)
     parser.add_argument('--smooth_bleu', action='store_true', default=False)
+    parser.add_argument('--is_debug', action='store_true', default=False)
 
     args = parser.parse_args()
 

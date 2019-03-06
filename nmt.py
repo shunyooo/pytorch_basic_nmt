@@ -58,7 +58,6 @@ import numpy as np
 from typing import List, Tuple, Dict
 from docopt import docopt
 from tqdm import tqdm
-from nltk.translate.bleu_score import corpus_bleu, sentence_bleu, SmoothingFunction
 
 import torch
 import torch.nn as nn
@@ -66,17 +65,10 @@ import torch.nn.utils
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
-import slack
-from rewards.utils import euclid_sim, diff_sents_length_shorten
-from utils import batch_iter, LabelSmoothingLoss, read_corpus_de_en, hypo2str, get_text2vec_deviation_target
-from vocab import Vocab, VocabEntry
+from rewards.cons import REWARD_LIST
+from utils import batch_iter, LabelSmoothingLoss, read_corpus_de_en, hypo2str
 
 Hypothesis = namedtuple('Hypothesis', ['value', 'score'])
-import pickle
-
-from sumeval.metrics.rouge import RougeCalculator
-
-rouge = RougeCalculator(stopwords=True, lang="en")
 
 class NMT(nn.Module):
 
@@ -512,7 +504,7 @@ class NMT(nn.Module):
         torch.save(params, path)
 
 
-def evaluate_valid_metric(model, dev_data, dev_ppl, args):
+def evaluate_valid_metric(model, dev_data, dev_ppl, args, reward_calc):
     """
     Evaluate vaild_metric on dev sentences
 
@@ -526,7 +518,7 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
     # model.eval() is called in beam_search.
 
     metric = args['--valid-metric']
-    if metric in ['bleu', 'deviation', 'deviation_diff', 'shorten']:
+    if metric in REWARD_LIST:
         _dev_data = dev_data[:int(args['--dev-decode-limit'])]
         dev_data_src = [src for src, tgt in _dev_data]
         print(f'begin decode {len(dev_data_src)} examples for bleu', file=sys.stderr)
@@ -537,6 +529,7 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
         elapsed = time.time() - begin_time
         print(f'finish decode {len(dev_data_src)} examples, took {elapsed:0f} s', file=sys.stderr)
         top_hypotheses = [hyps[0] for hyps in hypotheses]
+        top_hypotheses_sents = [hyps.value for hyps in top_hypotheses]
 
         for (src_sent, tgt_sent), top_hyp in zip(_dev_data, top_hypotheses):
             report = f"""
@@ -547,18 +540,7 @@ def evaluate_valid_metric(model, dev_data, dev_ppl, args):
             """
             print(report, file=sys.stderr)
 
-        if metric == 'blue':
-            bleu_score = compute_corpus_level_bleu_score(dev_data_src, top_hypotheses)
-            valid_metric = bleu_score
-        elif metric == 'deviation':
-            deviation_sim = compute_corpus_level_deviation_sim(top_hypotheses, args)
-            valid_metric = deviation_sim
-        elif metric == 'deviation_diff':
-            deviation_diff = compute_corpus_level_deviation_diff(dev_data_src, top_hypotheses, args)
-            valid_metric = deviation_diff
-        elif metric == 'shorten':
-            shorten_diff = compute_corpus_level_shorten_diff(dev_data_src, top_hypotheses, args)
-            valid_metric = shorten_diff
+        valid_metric = reward_calc.compute_corpus_reward(dev_data_src, top_hypotheses_sents)
 
     else:
         elapsed = 0
@@ -604,105 +586,6 @@ def evaluate_ppl(model, dev_data, batch_size=32):
         model.train()
 
     return ppl, cum_loss
-
-
-def compute_corpus_level_bleu_score(references: List[List[str]], hypotheses: List[Hypothesis]) -> float:
-    """
-    Given decoding results and reference sentences, compute corpus-level BLEU score
-
-    Args:
-        references: a list of gold-standard reference target sentences
-        hypotheses: a list of hypotheses, one for each reference
-
-    Returns:
-        bleu_score: corpus-level BLEU score
-    """
-
-    if references[0][0] == '<s>':
-        references = [ref[1:-1] for ref in references]
-
-    bleu_score = corpus_bleu([[ref] for ref in references],
-                             [hyp.value for hyp in hypotheses])
-
-    return bleu_score
-
-
-def compute_corpus_level_shorten_diff(references: List[List[str]], hypotheses: List[Hypothesis], args: Dict) -> float:
-    """
-    どれだけ短くなったかをコーパスレベルで計測。
-    Args:
-        references: a list of gold-standard reference target sentences
-        hypotheses: a list of hypotheses, one for each reference
-
-    Returns:
-        deviation_sim: corpus-level deviation_sim score
-    """
-    scores = np.array([diff_sents_length_shorten(ref, hyp.value) for hyp, ref in zip(hypotheses, references)])
-    print(f'scores: {scores}, mean: {np.mean(scores)}')
-    return np.mean(scores)
-
-
-def compute_corpus_level_deviation_diff(references: List[List[str]], hypotheses: List[Hypothesis], args: Dict) -> float:
-    """
-    デコード結果と参照=入力の、目的のインデックスにおける差分をコーパスレベルで測る。
-    Args:
-        references: a list of gold-standard reference target sentences
-        hypotheses: a list of hypotheses, one for each reference
-
-    Returns:
-        deviation_sim: corpus-level deviation_sim score
-    """
-
-    text2vec_deviation, target_vec = get_text2vec_deviation_target(args)
-    _tgt_index = target_vec.argmax()
-
-    # 計算
-    cal_diff_vec = lambda hyp, tgt: text2vec_deviation(hyp) - text2vec_deviation(tgt)
-    cal = lambda hyp, tgt: cal_diff_vec(hyp, tgt)[_tgt_index]
-    # cal = lambda hyp, tgt: max(cal_diff_vec(hyp, tgt)[_tgt_index], 0)
-
-    scores = np.array([cal(hyp.value, ref) for hyp, ref in zip(hypotheses, references)])
-    print(f'scores: {scores}, mean: {np.mean(scores)}')
-    return np.mean(scores)
-
-
-def compute_corpus_level_deviation_sim(hypotheses: List[Hypothesis], args: Dict) -> float:
-    """
-    デコード結果と目的のベクトルとの距離をコーパスレベルで測る。
-    Args:
-        hypotheses: a list of hypotheses, one for each reference
-
-    Returns:
-        deviation_sim: corpus-level deviation_sim score
-    """
-
-    text2vec_deviation, target_vec = get_text2vec_deviation_target(args)
-    # 計算
-    cal = lambda text: euclid_sim(target_vec, text2vec_deviation(text))
-    scores = np.array([cal(hyp.value) for hyp in hypotheses])
-    print(f'scores: {scores}, mean: {np.mean(scores)}')
-    return np.mean(scores)
-
-
-def compute_corpus_level_rouge_score(references: List[List[str]], hypotheses: List[Hypothesis]) -> float:
-    """
-    Given decoding results and reference sentences, compute corpus-level ROUGE score
-
-
-    Args:
-        references: a list of gold-standard reference target sentences
-        hypotheses: a list of hypotheses, one for each reference
-    Returns:
-        rouge_score: corpus-level ROUGE score（ROUGE-1, ROUGE-2, ROUGE-L）
-    """
-
-    if references[0][0] == '<s>':
-        references = [ref[1:-1] for ref in references]
-
-    rouge_score = sum([rouge.rouge_n(summary=hyp.value, references=ref, ) for hyp, ref in zip(hypotheses, references)])/len(references)
-
-    return rouge_score
-
 
 
 def beam_search(model: NMT, test_data_src: List[List[str]], beam_size: int, max_decoding_time_step: int) -> List[List[Hypothesis]]:

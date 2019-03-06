@@ -8,6 +8,7 @@ from typing import Dict
 import torch
 
 from nmt import NMT, evaluate_ppl, evaluate_valid_metric
+from rewards.loader import load_reward_calculator
 from utils import batch_iter, read_corpus_de_en, notify_slack_if_need, log_decode_to_tensorboard_raml, list_dict_update, \
     read_raml_train_data
 from vocab import Vocab
@@ -16,6 +17,10 @@ from tensorboardX import SummaryWriter
 
 writer = SummaryWriter(comment='NMT')
 DECODE_LOG_INDEXES = [0, 10, 13, 15]
+
+def _print(report):
+    print(report)
+    print(report, file=sys.stderr)
 
 def train_raml(args: Dict):
     train_data_src = read_corpus_de_en(args['--train'], source='src')
@@ -39,7 +44,6 @@ def train_raml(args: Dict):
 
     assert max(DECODE_LOG_INDEXES) < dev_decode_limit < len(dev_data), 'DECODEのログindexか, 数指定が不正です'
 
-
     vocab = Vocab.load(args['--vocab'])
 
     model = NMT(embed_size=int(args['--embed-size']),
@@ -50,6 +54,8 @@ def train_raml(args: Dict):
                 vocab=vocab)
     model.train()
 
+    reward_calc = load_reward_calculator(args)
+
     # ▼▼▼▼ RAML ▼▼▼▼
     tau = float(args['--raml-temp'])
     raml_sample_mode = args['--raml-sample-mode']
@@ -58,7 +64,7 @@ def train_raml(args: Dict):
 
     uniform_init = float(args['--uniform-init'])
     if np.abs(uniform_init) > 0.:
-        print('uniformly initialize parameters [-%f, +%f]' % (uniform_init, uniform_init), file=sys.stderr)
+        _print('uniformly initialize parameters [-%f, +%f]' % (uniform_init, uniform_init))
         for p in model.parameters():
             p.data.uniform_(-uniform_init, uniform_init)
 
@@ -66,7 +72,7 @@ def train_raml(args: Dict):
     vocab_mask[vocab.tgt['<pad>']] = 0
 
     device = torch.device("cuda:0" if args['--cuda'] else "cpu")
-    print('use device: %s' % device, file=sys.stderr)
+    _print('use device: %s' % device)
 
     model = model.to(device)
 
@@ -83,12 +89,16 @@ def train_raml(args: Dict):
 
     # ▼▼▼▼ RAML ▼▼▼▼
     # NOTE: RAML サンプリングの読み込み or 生成 begin
+    metric = args['--valid-metric']
+    raml_sample_file = args['--raml-sample-file']
     if raml_sample_mode == 'pre_sample':
         # dict of (src, [tgt: (sent, prob)])
-        print('read in raml training data...', file=sys.stderr, end='')
+        _print('read in raml training data...')
         begin_time = time.time()
-        raml_samples = read_raml_train_data(args['--raml-sample-file'], temp=tau)
-        print('done[%d s].' % (time.time() - begin_time))
+        raml_samples = read_raml_train_data(raml_sample_file, temp=tau)
+        _print('done[%d s].' % (time.time() - begin_time))
+        if metric not in raml_sample_file:
+            _print(f'【 WARING!!! 】: metric: {metric} と sample-file: {raml_sample_file} が異なる可能性')
     else:
         raise Exception(f'sampling:{raml_sample_mode} は、まだ未実装です')
     # ▲▲▲▲ RAML ▲▲▲▲
@@ -101,12 +111,12 @@ def train_raml(args: Dict):
         begin RAML training
         ・学習：{len(train_data)}ペア
         ・テスト：{len(dev_data)}ペア, {valid_niter}iter毎
-        ・バッチサイズ：{train_batch_size}
+        ・バッチサイズ：{train_batch_size} × {raml_sample_size}(raml sample size) = {train_batch_size*raml_sample_size}
         ・1epoch = {len(train_data)}ペア = {int(len(train_data)/train_batch_size)}iter
         ・max epoch：{args['--max-epoch']}
+        ・metric：{args['--valid-metric']}, サンプルファイル：{args['--raml-sample-file']}
     """
-    print(_info)
-    print(_info, file=sys.stderr)
+    _print(_info)
 
     notify_slack_if_need(f"""
     {_info}
@@ -124,8 +134,7 @@ def train_raml(args: Dict):
 
             if train_iter == 1:
                 _info = f'原文例：{src_sents[0]}\n参照例：{tgt_sents[0]}'
-                print(_info)
-                print(_info, file=sys.stderr)
+                _print(_info)
 
             # ▼▼▼▼ RAML ▼▼▼▼
             # src_sents 内 sent に紐づくサンプリングを取得　→　学習データとする
@@ -140,14 +149,14 @@ def train_raml(args: Dict):
                     if raml_sample_size >= len(tgt_samples_all):
                         tgt_samples = tgt_samples_all
                     else:
-                        # tgt_samples_id = np.random.choice(range(1, len(tgt_samples_all)),
-                        #                                  size=raml_sample_size - 1, replace=False)
+                        tgt_samples_id = np.random.choice(range(1, len(tgt_samples_all)),
+                                                         size=raml_sample_size - 1, replace=False)
 
                         # [ground truth y*] + samples
                         # WARNING: ground truthが入っていない
-                        # tgt_samples = [tgt_samples_all[0]] + [tgt_samples_all[i] for i in tgt_samples_id]
+                        tgt_samples = [tgt_samples_all[0]] + [tgt_samples_all[i] for i in tgt_samples_id]
 
-                        tgt_samples = tgt_samples_all[:raml_sample_size]
+                        # tgt_samples = tgt_samples_all[:raml_sample_size]
 
                     raml_src_sents.extend([src_sent] * len(tgt_samples))
                     raml_tgt_sents.extend([['<s>'] + sent.split(' ') + ['</s>'] for sent, weight in tgt_samples])
@@ -204,8 +213,7 @@ def train_raml(args: Dict):
                                                                                              report_tgt_words / (
                                                                                                      time.time() - train_time),
                                                                                              time.time() - begin_time)
-                print(_report)
-                print(_report, file=sys.stderr)
+                _print(_report)
 
                 list_dict_update(log_data, {
                     'epoch': epoch,
@@ -225,30 +233,28 @@ def train_raml(args: Dict):
 
             # perform validation
             if train_iter % valid_niter == 0:
-                print('epoch %d, iter %d, cum. loss %.2f, cum. ppl %.2f cum. examples %d' % (epoch, train_iter,
+                _print('epoch %d, iter %d, cum. loss %.2f, cum. ppl %.2f cum. examples %d' % (epoch, train_iter,
                                                                                              cum_weighted_loss / cum_examples,
                                                                                              np.exp(
                                                                                                  cum_loss / cum_tgt_words),
-                                                                                             cum_examples), file=sys.stderr)
+                                                                                             cum_examples))
 
                 cum_loss = cum_weighted_loss = cum_examples = cum_tgt_words = 0.
                 valid_num += 1
 
-                print('begin validation ...')
-                print('begin validation ...', file=sys.stderr)
+                _print('begin validation ...')
 
                 # compute dev. ppl and bleu
                 _begin_time = time.time()
                 # dev_ppl = dev_loss = 0
                 dev_ppl, dev_loss = evaluate_ppl(model, dev_data, batch_size=16)  # dev batch size can be a bit larger
-                valid_metric, eval_info = evaluate_valid_metric(model, dev_data, dev_ppl, args)
+                valid_metric, eval_info = evaluate_valid_metric(model, dev_data, dev_ppl, args, reward_calc)
                 _elapsed = time.time() - _begin_time
 
                 _report = 'validation: iter %d, dev. ppl %f, dev. %s %f , time elapsed %.2f sec' % (
                     train_iter, dev_ppl, args['--valid-metric'], valid_metric, _elapsed
                 )
-                print(_report)
-                print(_report, file=sys.stderr)
+                _print(_report)
                 notify_slack_if_need(_report, args)
 
                 if 'dev_data' in log_data:
@@ -274,34 +280,35 @@ def train_raml(args: Dict):
 
                 if is_better:
                     patience = 0
-                    print('save currently the best model to [%s]' % model_save_path, file=sys.stderr)
+                    _print('save currently the best model to [%s]' % model_save_path)
+
                     model.save(model_save_path)
 
                     # also save the optimizers' state
                     torch.save(optimizer.state_dict(), model_save_path + '.optim')
                 elif patience < int(args['--patience']):
                     patience += 1
-                    print('hit patience %d' % patience, file=sys.stderr)
+                    _print('hit patience %d' % patience)
 
                     if patience == int(args['--patience']):
                         num_trial += 1
-                        print('hit #%d trial' % num_trial, file=sys.stderr)
+                        _print('hit #%d trial' % num_trial)
                         if num_trial == int(args['--max-num-trial']):
                             _report = 'early stop!'
                             notify_slack_if_need(_report, args)
-                            print(_report, file=sys.stderr)
+                            _print(_report)
                             exit(0)
 
                         # decay lr, and restore from previously best checkpoint
                         lr = optimizer.param_groups[0]['lr'] * float(args['--lr-decay'])
-                        print('load previously best model and decay learning rate to %f' % lr, file=sys.stderr)
+                        _print('load previously best model and decay learning rate to %f' % lr)
 
                         # load model
                         params = torch.load(model_save_path, map_location=lambda storage, loc: storage)
                         model.load_state_dict(params['state_dict'])
                         model = model.to(device)
 
-                        print('restore parameters of the optimizers', file=sys.stderr)
+                        _print('restore parameters of the optimizers')
                         optimizer.load_state_dict(torch.load(model_save_path + '.optim'))
 
                         # set new lr
@@ -314,6 +321,6 @@ def train_raml(args: Dict):
                 if epoch == int(args['--max-epoch']):
                     _report = 'reached maximum number of epochs!'
                     notify_slack_if_need(_report, args)
-                    print(_report, file=sys.stderr)
+                    _print(_report)
                     exit(0)
 
