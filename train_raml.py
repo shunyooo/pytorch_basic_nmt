@@ -156,8 +156,6 @@ def train_raml(args: Dict):
                         # WARNING: ground truthが入っていない
                         tgt_samples = [tgt_samples_all[0]] + [tgt_samples_all[i] for i in tgt_samples_id]
 
-                        # tgt_samples = tgt_samples_all[:raml_sample_size]
-
                     raml_src_sents.extend([src_sent] * len(tgt_samples))
                     raml_tgt_sents.extend([['<s>'] + sent.split(' ') + ['</s>'] for sent, weight in tgt_samples])
                     raml_tgt_weights.extend([weight for sent, weight in tgt_samples])
@@ -172,6 +170,7 @@ def train_raml(args: Dict):
             batch_size = len(raml_src_sents)
             # (batch_size)
             unweighted_loss = -model(raml_src_sents, raml_tgt_sents)
+            # scalar
             batch_loss = weighted_loss = (unweighted_loss * weights_var).sum()
             loss = batch_loss / weights_var.sum()
             writer.add_scalar('loss/train_unweighted_loss', unweighted_loss.sum() / batch_size, train_iter)
