@@ -272,7 +272,7 @@ def train_raml(args: Dict):
                 writer.add_scalar('metric/dev_ppl', dev_ppl, train_iter)
                 writer.add_scalar('metric/' + args['--valid-metric'], valid_metric, train_iter)
                 if 'top_hyps' in eval_info:
-                    log_decode_to_tensorboard_raml(train_iter, DECODE_LOG_INDEXES, writer, reward_calc, args=args, eval_info=eval_info)
+                    log_decode_to_tensorboard_raml(train_iter, DECODE_LOG_INDEXES, writer, reward_calc, args=args, eval_info=eval_info, dev_data=dev_data)
 
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
                 hist_valid_scores.append(valid_metric)
