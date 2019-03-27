@@ -203,25 +203,24 @@ def train_raml(args: Dict):
             cum_examples += batch_size
 
             if train_iter % log_every == 0 or train_iter % notify_slack_every == 0:
+                _loss = report_weighted_loss / report_examples
+                _ppl = math.exp(report_loss / report_tgt_words)
+                _speed = report_tgt_words / (time.time() - train_time)
+                _elapsed = time.time() - begin_time
                 _report = 'epoch %d, iter %d, avg. loss %.2f, avg. ppl %.2f ' \
                           'cum. examples %d, speed %.2f words/sec, time elapsed %.2f sec' % (epoch, train_iter,
-                                                                                             report_weighted_loss / report_examples,
-                                                                                             math.exp(
-                                                                                                 report_loss / report_tgt_words),
-                                                                                             cum_examples,
-                                                                                             report_tgt_words / (
-                                                                                                     time.time() - train_time),
-                                                                                             time.time() - begin_time)
+                                                                                             _loss, _ppl, cum_examples,
+                                                                                             _speed, _elapsed)
                 _print(_report)
 
                 list_dict_update(log_data, {
                     'epoch': epoch,
                     'train_iter': train_iter,
-                    'loss': report_loss / report_examples,
-                    'ppl': math.exp(report_loss / report_tgt_words),
+                    'loss': _loss,
+                    'ppl': _ppl,
                     'examples': cum_examples,
-                    'speed': report_tgt_words / (time.time() - train_time),
-                    'elapsed': time.time() - begin_time
+                    'speed': _speed,
+                    'elapsed': _elapsed,
                 }, 'train')
 
                 train_time = time.time()
