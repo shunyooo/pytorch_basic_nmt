@@ -15,7 +15,7 @@ from vocab import Vocab
 
 from tensorboardX import SummaryWriter
 
-writer = SummaryWriter(comment='NMT')
+writer = None
 DECODE_LOG_INDEXES = [0, 10, 13, 15]
 
 def _print(report):
@@ -38,9 +38,13 @@ def train_raml(args: Dict):
     valid_niter = int(args['--valid-niter'])
     log_every = int(args['--log-every'])
     notify_slack_every = int(args['--notify-slack-every'])
-    model_save_path = args['--save-to']
     dev_decode_limit = int(args['--dev-decode-limit'])
     is_debug = bool(args['--debug'])
+
+    log_dir = args['--log-dir']
+    global writer
+    writer = SummaryWriter(comment='NMT', log_dir=log_dir)
+    model_save_path = f'{log_dir}/model.bin'
 
     assert max(DECODE_LOG_INDEXES) < dev_decode_limit < len(dev_data), 'DECODEのログindexか, 数指定が不正です'
 

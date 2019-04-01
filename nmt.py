@@ -33,13 +33,12 @@ Options:
     --sample-size=<int>                     sample size [default: 5]
     --lr=<float>                            learning rate [default: 0.001]
     --uniform-init=<float>                  uniformly initialize all parameters [default: 0.1]
-    --save-to=<file>                        model save path [default: model.bin]
     --valid-niter=<int>                     perform validation after how many iterations [default: 2000]
     --dropout=<float>                       dropout [default: 0.3]
     --max-decoding-time-step=<int>          maximum number of decoding time steps [default: 70]
     --dev-decode-limit=<int>                validation dev_data decode limit [default: 100]
     --valid-metric=<str>                    metric used for validation [default: bleu]
-    --log-data=<file>                       log data file
+    --log-dir=<file>                        log data dir
     --notify-slack                          notify slack
     --notify-slack-every=<int>              notify slack every [default: 1000]
     --raml-temp=<float>                     emperature in reward distribution [default: 0.85]
