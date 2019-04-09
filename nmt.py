@@ -11,6 +11,7 @@ Usage:
 Options:
     -h --help                               show this screen.
     --cuda                                  use GPU
+    --cuda-index=<int>                      use GPU INDEX [default: 1]
     --train=<file>                          train source target file
     --dev=<file>                            dev source target file
     --vocab=<file>                          vocab file
@@ -628,7 +629,7 @@ def decode(args: Dict[str, str]):
     model = NMT.load(args['MODEL_PATH'])
 
     if args['--cuda']:
-        model = model.to(torch.device("cuda:0"))
+        model = model.to(torch.device(f"cuda:{args['--cuda-index']}"))
 
     hypotheses = beam_search(model, test_data_src,
                              beam_size=int(args['--beam-size']),
