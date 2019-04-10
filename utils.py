@@ -204,7 +204,11 @@ def list_dict_update(data_dict, add_dict, mode, is_save=False):
 
 def notify_slack_if_need(text, args):
     if args['--notify-slack']:
-        slack.post(text)
+        try:
+            slack.post(text)
+        except Exception as e:
+            print('slack.post error', e)
+
 
 
 def log_decode_to_tensorboard(global_step, log_indexes, writer, dev_data=None, eval_info=None):
