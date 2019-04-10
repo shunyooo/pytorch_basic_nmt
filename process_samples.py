@@ -261,8 +261,8 @@ def sample_ngram_word2vec(args):
     begin_time = time.time()
     print('model loading...')
     model = gensim.models.KeyedVectors.load_word2vec_format(
-        # './data/word2vec/GoogleNews-vectors-negative300.bin.gz',
-        './data/word2vec/text8.bin.gz',
+        './data/word2vec/GoogleNews-vectors-negative300.bin.gz',
+        # './data/word2vec/text8.bin.gz',
         binary=True)
     model_vocab_set = set(model.vocab)
 
