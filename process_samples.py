@@ -183,40 +183,65 @@ def sample_ngram(args):
 
 # MARK: word2vec
 
-def get_new_ngram_word2vec(ngram, vocab, model):
+# def get_new_ngram_word2vec(ngram, vocab, model):
+#     """
+#     ngram `ngram`を新しくサンプリングされた同じ長さのngramに置き換える
+#     replace ngram `ngram` with a newly sampled ngram of the same length
+#     """
+#
+#     def sample_w2v_simlar(word):
+#         if word in model.vocab:
+#             similar_arr = np.array(model.most_similar(word))
+#             words = similar_arr[:, 0]
+#             probs = similar_arr[:, 1].astype(np.float64)
+#             probs = probs / sum(probs)
+#             return np.random.choice(words, p=probs)
+#         else:
+#             wid = np.random.randint(3, len(vocab))
+#             return vocab.id2word[wid]
+#
+#     new_ngram = [sample_w2v_simlar(w) for w in ngram]
+#
+#     return new_ngram
+
+def get_w2v_contain_index_list_similar(word_list, model, model_vocab_set):
+    valid_words = set(word_list) & model_vocab_set
+    similar_dict = {word: np.array(model.most_similar(word)) for word in valid_words}
+    valid_words_index = [i for i, w in enumerate(word_list) if w in valid_words]
+    return valid_words_index, similar_dict
+
+
+def sample_w2v_simlar(similar_arr):
+    words = similar_arr[:, 0]
+    probs = similar_arr[:, 1].astype(np.float64)
+    probs = probs / sum(probs)
+    return np.random.choice(words, p=probs)
+
+
+def sample_ngram_word2vec_sentence(args, word_list, valid_words_index, similar_dict):
     """
-    ngram `ngram`を新しくサンプリングされた同じ長さのngramに置き換える
-    replace ngram `ngram` with a newly sampled ngram of the same length
+    一文に対する入れ替え
+    変更箇所をmodel.vacabに含まれる単語に制限してみる。
+
     """
 
-    def sample_w2v_simlar(word):
-        if word in model.vocab:
-            similar_arr = np.array(model.most_similar(word))
-            words = similar_arr[:, 0]
-            probs = similar_arr[:, 1].astype(np.float64)
-            probs = probs / sum(probs)
-            return np.random.choice(words, p=probs)
-        else:
-            wid = np.random.randint(3, len(vocab))
-            return vocab.id2word[wid]
+    tgt_len = len(valid_words_index)
+    if tgt_len == 0:
+        return None
 
-    new_ngram = [sample_w2v_simlar(w) for w in ngram]
-
-    return new_ngram
-
-
-def sample_ngram_word2vec_sentence(args, word_list, vocab, model):
-    """一文に対する入れ替え"""
-    tgt_len = len(word_list)
     # ngram
-    n = np.random.randint(1, min(tgt_len, args.max_ngram_size + 1))  # we do not replace the last token: it must be a period!
-    idx = np.random.randint(tgt_len - n)
-    ngram = word_list[idx: idx + n]
+    n = np.random.randint(1, min(tgt_len,
+                                 args.max_ngram_size + 1))  # we do not replace the last token: it must be a period!
+    idxs = np.random.choice(valid_words_index, size=n, replace=False)
 
-    new_ngram = get_new_ngram_word2vec(ngram, vocab, model)
+    # 変更ngram実体
+    ngram = word_list[idxs]
+    # 単語取得
+    new_ngram = [sample_w2v_simlar(similar_dict[w]) for w in ngram]
 
-    sampled_tgt_sent = list(word_list)
-    sampled_tgt_sent[idx: idx + n] = new_ngram
+    sampled_tgt_sent = word_list.copy()
+    # 入れ替え
+    sampled_tgt_sent[idxs] = new_ngram
     return sampled_tgt_sent
 
 
@@ -236,18 +261,26 @@ def sample_ngram_word2vec(args):
     begin_time = time.time()
     print('model loading...')
     model = gensim.models.KeyedVectors.load_word2vec_format(
-        './data/word2vec/GoogleNews-vectors-negative300.bin.gz',
-        # '/Users/syunyo/gensim-data/word2vec-ruscorpora-300/word2vec-ruscorpora-300.gz',
+        # './data/word2vec/GoogleNews-vectors-negative300.bin.gz',
+        './data/word2vec/text8.bin.gz',
         binary=True)
+    model_vocab_set = set(model.vocab)
+
     print('loaded model [%d s].' % (time.time() - begin_time))
 
     f_out = open(args.output, 'w')
 
     print('sample ngram word2vec', len(src_sents), len(tgt_sents), f_out)
     for i, (src_sent, tgt_sent) in enumerate(zip(src_sents, tgt_sents)):
-        src_sent = ' '.join(src_sent)
+        tgt_sent = np.array(tgt_sent)
         tgt_sample_list = [tgt_sent]
-        tgt_sample_list += [sample_ngram_word2vec_sentence(args, tgt_sent, tgt_vocab, model) for _ in
+
+        # 高速化のため、ここでword2vecに関する情報を整理しておく
+        valid_words_index, similar_dict = get_w2v_contain_index_list_similar(tgt_sent, model, model_vocab_set)
+        if len(valid_words_index) <= 1:
+            print(f'入れ替え可能な単語がありません。:{" ".join(tgt_sent)}')
+            continue
+        tgt_sample_list += [sample_ngram_word2vec_sentence(args, tgt_sent, valid_words_index, similar_dict) for _ in
                             range(args.sample_size - 1)]
         reward_list = []
         for tgt_sample in tgt_sample_list:
@@ -258,13 +291,14 @@ def sample_ngram_word2vec(args):
         tgt_sample_list = [' '.join(tgt_sample) for tgt_sample in tgt_sample_list]
 
         print('*' * 50, file=f_out)
+        src_sent = ' '.join(src_sent)
         print('source: ' + src_sent, file=f_out)
         print('%d samples' % len(tgt_sample_list), file=f_out)
         for _i in tgt_ranks:
             print('%s ||| %f' % (tgt_sample_list[_i], reward_list[_i]), file=f_out)
         print('*' * 50, file=f_out)
 
-        if i % 1000 == 0 and i != 0:
+        if i % 100 == 0 and i != 0:
             print('done %d [%d s].' % (i, time.time() - begin_time))
             if args.is_debug:
                 print('debug mode!! stop')
