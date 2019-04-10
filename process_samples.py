@@ -16,6 +16,8 @@ import math
 
 import gensim
 
+import pickle
+
 
 # def is_valid_sample(sent):
 #     tokens = sent.split(' ')
@@ -243,6 +245,80 @@ def sample_ngram_word2vec_sentence(args, word_list, valid_words_index, similar_d
     # 入れ替え
     sampled_tgt_sent[idxs] = new_ngram
     return sampled_tgt_sent
+
+
+def get_w2v_contain_index_list_by_dict(word_list, vocab_set):
+    valid_words = set(word_list) & vocab_set
+    valid_words_index = [i for i, w in enumerate(word_list) if w in valid_words]
+    return valid_words_index
+
+
+def sample_ngram_word2vec_by_dict(args):
+    """
+    単語入れ替えにおいて近い意味で入れ替えられるようにword2vecを用いる。
+    :param args:
+    :return:
+    """
+    src_sents = read_corpus_de_en(args.src, 'src')
+    tgt_sents = read_corpus_de_en(args.tgt, 'src')  # do not read in <s> and </s>
+
+    vocab = Vocab.load(args.vocab)
+    tgt_vocab = vocab.tgt
+    reward_calc = get_reward_calculator(args)
+
+    begin_time = time.time()
+    print('dict loading...')
+    with open('./data/word2vec/de_en_similar_dict.pickle', 'rb') as f:
+        similar_dict = pickle.load(f)
+    vocab_set = set(similar_dict.keys())
+
+    print('loaded model [%d s].' % (time.time() - begin_time))
+
+    f_out = open(args.output, 'w')
+
+    print('sample ngram word2vec', len(src_sents), len(tgt_sents), f_out)
+    for i, (src_sent, tgt_sent) in enumerate(zip(src_sents, tgt_sents)):
+        tgt_sent = np.array(tgt_sent)
+        tgt_sample_list = [tgt_sent]
+
+        # 高速化のため、ここでword2vecに関する情報を整理しておく
+        _st = time.time()
+        valid_words_index = get_w2v_contain_index_list_by_dict(tgt_sent, vocab_set)
+        print(f'get_w2v_contain_index_list_by_dict : [{time.time()-_st:.3g} s].')
+        if len(valid_words_index) <= 1:
+            print(f'入れ替え可能な単語がありません。:{" ".join(tgt_sent)}')
+            continue
+
+        _st = time.time()
+        tgt_sample_list += [sample_ngram_word2vec_sentence(args, tgt_sent, valid_words_index, similar_dict) for _ in
+                            range(args.sample_size - 1)]
+        print(f'sample_ngram_word2vec_sentence : {args.sample_size - 1}samples: [{time.time()-_st:.3g} s].')
+
+        _st = time.time()
+        reward_list = []
+        for tgt_sample in tgt_sample_list:
+            reward = reward_calc.compute_sentence_reward(tgt_sent, tgt_sample)
+            reward_list.append(reward)
+        print(f'compute rewards : {len(tgt_sample_list)}samples: [{time.time()-_st:.3g} s].')
+
+        tgt_ranks = sorted(range(len(tgt_sample_list)), key=lambda i: reward_list[i], reverse=True)
+        tgt_sample_list = [' '.join(tgt_sample) for tgt_sample in tgt_sample_list]
+
+        print('*' * 50, file=f_out)
+        src_sent = ' '.join(src_sent)
+        print('source: ' + src_sent, file=f_out)
+        print('%d samples' % len(tgt_sample_list), file=f_out)
+        for _i in tgt_ranks:
+            print('%s ||| %f' % (tgt_sample_list[_i], reward_list[_i]), file=f_out)
+        print('*' * 50, file=f_out)
+
+        if i % 100 == 0 and i != 0:
+            print('done %d [%d s].' % (i, time.time() - begin_time))
+            if args.is_debug:
+                print('debug mode!! stop')
+                break;
+
+    f_out.close()
 
 
 def sample_ngram_word2vec(args):
@@ -530,7 +606,7 @@ if __name__ == '__main__':
     elif args.mode == 'sample_hamming_distance':
         sample_hamming_distance(args)
     elif args.mode == 'sample_ngram_word2vec':
-        sample_ngram_word2vec(args)
+        sample_ngram_word2vec_by_dict(args)
 
     # elif args.mode == 'sample_from_model':
     #     sample_from_model(args)
