@@ -148,21 +148,24 @@ def train_raml(args: Dict):
             if raml_sample_mode == 'pre_sample':
                 for src_sent in src_sents:
                     sent = ' '.join(src_sent)
-                    tgt_samples_all = raml_samples[sent]
-                    # random choice from candidate samples
-                    if raml_sample_size >= len(tgt_samples_all):
-                        tgt_samples = tgt_samples_all
-                    else:
-                        tgt_samples_id = np.random.choice(range(1, len(tgt_samples_all)),
-                                                         size=raml_sample_size - 1, replace=False)
+                    try:
+                        tgt_samples_all = raml_samples[sent]
+                        # random choice from candidate samples
+                        if raml_sample_size >= len(tgt_samples_all):
+                            tgt_samples = tgt_samples_all
+                        else:
+                            tgt_samples_id = np.random.choice(range(1, len(tgt_samples_all)),
+                                                             size=raml_sample_size - 1, replace=False)
 
-                        # [ground truth y*] + samples
-                        # WARNING: ground truthが入っていない
-                        tgt_samples = [tgt_samples_all[0]] + [tgt_samples_all[i] for i in tgt_samples_id]
+                            # [ground truth y*] + samples
+                            # WARNING: ground truthが入っていない
+                            tgt_samples = [tgt_samples_all[0]] + [tgt_samples_all[i] for i in tgt_samples_id]
 
-                    raml_src_sents.extend([src_sent] * len(tgt_samples))
-                    raml_tgt_sents.extend([['<s>'] + sent.split(' ') + ['</s>'] for sent, weight in tgt_samples])
-                    raml_tgt_weights.extend([weight for sent, weight in tgt_samples])
+                        raml_src_sents.extend([src_sent] * len(tgt_samples))
+                        raml_tgt_sents.extend([['<s>'] + sent.split(' ') + ['</s>'] for sent, weight in tgt_samples])
+                        raml_tgt_weights.extend([weight for sent, weight in tgt_samples])
+                    except Exception as e:
+                        print(e)
             else:
                 raise Exception(f'sampling:{raml_sample_mode} は、まだ未実装です')
             # ▲▲▲▲ RAML ▲▲▲▲
