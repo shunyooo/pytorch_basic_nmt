@@ -282,24 +282,24 @@ def sample_ngram_word2vec_by_dict(args):
         tgt_sample_list = [tgt_sent]
 
         # 高速化のため、ここでword2vecに関する情報を整理しておく
-        _st = time.time()
+        # _st = time.time()
         valid_words_index = get_w2v_contain_index_list_by_dict(tgt_sent, vocab_set)
-        print(f'get_w2v_contain_index_list_by_dict : [{time.time()-_st:.3g} s].')
+        # print(f'get_w2v_contain_index_list_by_dict : [{time.time()-_st:.3g} s].')
         if len(valid_words_index) <= 1:
             print(f'入れ替え可能な単語がありません。:{" ".join(tgt_sent)}')
             continue
 
-        _st = time.time()
+        # _st = time.time()
         tgt_sample_list += [sample_ngram_word2vec_sentence(args, tgt_sent, valid_words_index, similar_dict) for _ in
                             range(args.sample_size - 1)]
-        print(f'sample_ngram_word2vec_sentence : {args.sample_size - 1}samples: [{time.time()-_st:.3g} s].')
+        # print(f'sample_ngram_word2vec_sentence : {args.sample_size - 1}samples: [{time.time()-_st:.3g} s].')
 
-        _st = time.time()
+        # _st = time.time()
         reward_list = []
         for tgt_sample in tgt_sample_list:
             reward = reward_calc.compute_sentence_reward(tgt_sent, tgt_sample)
             reward_list.append(reward)
-        print(f'compute rewards : {len(tgt_sample_list)}samples: [{time.time()-_st:.3g} s].')
+        # print(f'compute rewards : {len(tgt_sample_list)}samples: [{time.time()-_st:.3g} s].')
 
         tgt_ranks = sorted(range(len(tgt_sample_list)), key=lambda i: reward_list[i], reverse=True)
         tgt_sample_list = [' '.join(tgt_sample) for tgt_sample in tgt_sample_list]
