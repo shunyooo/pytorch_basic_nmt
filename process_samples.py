@@ -268,7 +268,7 @@ def sample_ngram_word2vec_by_dict(args):
 
     begin_time = time.time()
     print('dict loading...')
-    with open('./data/word2vec/de_en_similar_dict.pickle', 'rb') as f:
+    with open(args.similar_dict, 'rb') as f:
         similar_dict = pickle.load(f)
     vocab_set = set(similar_dict.keys())
 
@@ -337,8 +337,8 @@ def sample_ngram_word2vec(args):
     begin_time = time.time()
     print('model loading...')
     model = gensim.models.KeyedVectors.load_word2vec_format(
-        './data/word2vec/GoogleNews-vectors-negative300.bin.gz',
-        # './data/word2vec/text8.bin.gz',
+        # './data/word2vec/GoogleNews-vectors-negative300.bin.gz',
+        './data/word2vec/text8.bin.gz',
         binary=True)
     model_vocab_set = set(model.vocab)
 
@@ -582,11 +582,13 @@ def sample_sentence_hamming_distance(args, word_list, vocab):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', choices=['sample_ngram', 'sample_hamming_distance', 'sample_ngram_word2vec'], required=True)
+    parser.add_argument('--mode', choices=['sample_ngram', 'sample_hamming_distance', 'sample_ngram_word2vec'],
+                        required=True)
     parser.add_argument('--vocab', type=str)
     parser.add_argument('--src', type=str)
     parser.add_argument('--tgt', type=str)
     parser.add_argument('--preprocessed_data', type=str)
+    parser.add_argument('--similar_dict', type=str)
     parser.add_argument('--target_vec', type=str)
     parser.add_argument('--parallel_data', type=str)
     parser.add_argument('--sample_file', type=str)
