@@ -1,4 +1,5 @@
 from typing import List
+import numpy as np
 
 
 class AbstractReward(object):
@@ -14,6 +15,8 @@ class AbstractReward(object):
         :param hypothesis: 生成文
         :return: 報酬
         """
+        assert type(reference) == list or type(reference).__module__ == np.__name__
+        assert type(hypothesis) == list or type(hypothesis).__module__ == np.__name__
         reference, hypothesis = self.preprocess_sentence(reference, hypothesis)
         return self._compute_sentence_reward(reference, hypothesis)
 
