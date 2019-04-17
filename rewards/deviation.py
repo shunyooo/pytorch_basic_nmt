@@ -84,6 +84,7 @@ class DeviationReward(AbstractReward):
             :param text:  ['word', 'word', 'word', 'word']
             :return: list ベクトル
             """
+            assert type(text) == list
             words_count = 0
             vec = np.zeros(topic_N, dtype=float)
             for word in text:
