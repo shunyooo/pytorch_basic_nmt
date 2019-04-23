@@ -62,7 +62,7 @@ class DeviationReward(AbstractReward):
             preprocessed_data = pickle.load(f)
             text2vec_deviation = DeviationReward.text2vec_deviation_outer(
                 preprocessed_data.df_word,
-                preprocessed_data.model.num_topics
+                len(preprocessed_data.df_topic),
             )
             return text2vec_deviation
 
