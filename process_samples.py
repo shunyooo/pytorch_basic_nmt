@@ -293,7 +293,7 @@ def sample_ngram_word2vec_by_dict(args):
         # _st = time.time()
         tgt_sample_list += [sample_ngram_word2vec_sentence(args, tgt_sent, valid_words_index, similar_dict) for _ in
                             range(args.sample_size - 1)]
-        tgt_sample_list = list(set(tgt_sample_list))
+        # tgt_sample_list = list(set(tgt_sample_list))
         # print(f'sample_ngram_word2vec_sentence : {len(tgt_sample_list)}samples: [{time.time()-_st:.3g} s].')
 
         # _st = time.time()
