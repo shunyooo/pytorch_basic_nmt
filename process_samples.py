@@ -7,6 +7,7 @@ import re
 import argparse
 import torch
 
+from rewards.cons import REWARD_LIST
 from rewards.loader import load_reward_calculator
 from utils import read_corpus_de_en
 import numpy as np
@@ -595,7 +596,8 @@ if __name__ == '__main__':
     parser.add_argument('--sample_file', type=str)
     parser.add_argument('--output', type=str, required=True)
     parser.add_argument('--sample_size', type=int, default=100)
-    parser.add_argument('--reward', choices=['bleu', 'edit_dist', 'lda', 'deviation', 'deviation_diff', 'shorten'],
+    parser.add_argument('--reward',
+                        choices=REWARD_LIST,
                         default='bleu')
     parser.add_argument('--max_ngram_size', type=int, default=4)
     parser.add_argument('--temp', type=float, default=0.5)

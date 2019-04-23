@@ -1,6 +1,7 @@
 from .bleu import BlueReward
 from .deviation import DeviationReward
 from .deviation_diff import DeviationDiffReward
+from .deviation_onehot import DeviationOnehotReward
 from .shorten import ShortenReward
 
 
@@ -13,6 +14,8 @@ def load_reward_calculator(args):
         return DeviationReward(args)
     elif metric == 'deviation_diff':
         return DeviationDiffReward(args)
+    elif metric == 'deviation_onehot':
+        return DeviationOnehotReward(args)
     elif metric == 'shorten':
         return ShortenReward(args)
     else:
