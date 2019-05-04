@@ -160,7 +160,7 @@ def sample_ngram(args):
         # compute bleu scores or edit distances and rank the samples by bleu scores
         rewards = []
         _tgt_sent_vec = None
-        for tgt_sample in zip(tgt_samples):
+        for tgt_sample in tgt_samples:
             reward = reward_calc.compute_sentence_reward(tgt_sent, tgt_sample)
             rewards.append(reward)
 
